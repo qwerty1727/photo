@@ -136,7 +136,6 @@
 
   function clampS(v) { return Math.min(MAX, Math.max(MIN, v)); }
 
-  /* ---------- база (твоя старая, проверенная) ---------- */
   function box() { return stage.getBoundingClientRect(); }
   function rel(e) {
     var b = box();
@@ -174,7 +173,6 @@
   }
   function resetView() { stopInertia(); st.sx = 1; st.sy = 1; st.x = 0; st.y = 0; syncScaleUI(); apply(); }
 
-  /* ---------- инерция (твоя старая) ---------- */
   function stopInertia() { if (raf) { cancelAnimationFrame(raf); raf = 0; } }
   function startInertia() {
     stopInertia();
@@ -192,7 +190,6 @@
     raf = requestAnimationFrame(step);
   }
 
-  /* ---------- жесты ---------- */
   function count() { return Object.keys(ptrs).length; }
   function startPinch() {
     var ids = Object.keys(ptrs);
@@ -278,7 +275,6 @@
   window.addEventListener('resize', apply);
   img.addEventListener('load', apply);
 
-  /* ---------- память ---------- */
   function openDb() {
     return new Promise(function (resolve, reject) {
       var r = indexedDB.open('photo-app-v2', 1);
@@ -330,7 +326,6 @@
     }).catch(function () {});
   }
 
-  /* ---------- исчезновение интерфейса при перетаскивании ---------- */
   var fadeTimer = 0;
   function startFade(row) {
     clearTimeout(fadeTimer);
@@ -347,22 +342,21 @@
       if (old) old.classList.remove('keep');
     }, 120);
   }
-  [opEl, sxEl, syEl].forEach(function (inp) {
+  
   // Для ширины и высоты — интерфейс исчезает
-[sxEl, syEl].forEach(function (inp) {
-  inp.addEventListener('pointerdown', function () { startFade(inp.closest('.setting-row')); });
-  inp.addEventListener('pointerup', endFade);
-  inp.addEventListener('pointercancel', endFade);
-});
+  [sxEl, syEl].forEach(function (inp) {
+    inp.addEventListener('pointerdown', function () { startFade(inp.closest('.setting-row')); });
+    inp.addEventListener('pointerup', endFade);
+    inp.addEventListener('pointercancel', endFade);
+  });
 
-// Для прозрачности — интерфейс остаётся, шестерёнка видна
-opEl.addEventListener('pointerdown', function () {
-  document.body.classList.remove('ui-fading');
-  var old = sheet.querySelector('.keep');
-  if (old) old.classList.remove('keep');
-});
+  // Для прозрачности — интерфейс остаётся, шестерёнка видна
+  opEl.addEventListener('pointerdown', function () {
+    document.body.classList.remove('ui-fading');
+    var old = sheet.querySelector('.keep');
+    if (old) old.classList.remove('keep');
+  });
 
-  /* ---------- настройки ---------- */
   function openSheet() { note.textContent = NOTE_DEFAULT; sheetWrap.hidden = false; }
   function closeSheet() { sheetWrap.hidden = true; document.body.classList.remove('ui-fading'); saveSettings(); }
   gear.addEventListener('click', openSheet);
@@ -390,7 +384,6 @@ opEl.addEventListener('pointerdown', function () {
     resetView(); saveSettings();
   });
 
-  /* ---------- фото ---------- */
   var SAMPLE_SVG =
     '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 1600">' +
     '<defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1">' +
@@ -458,7 +451,6 @@ opEl.addEventListener('pointerdown', function () {
     closeSheet();
   });
 
-  /* ---------- старт ---------- */
   showSample();
   loadSettings();
   dbGet('photo').then(function (blob) { if (blob) showBlob(blob); }).catch(function () {});
