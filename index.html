@@ -192,6 +192,37 @@
   var tap = null;
   var lastTap = { t: 0, x: 0, y: 0 };
   var last = null;
+  var vel = { x: 0, y: 0 };
+  var lastT = 0;
+  var raf = 0;
+  var reduceMotion = false;
+  try { reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) {}
+
+  function stopInertia() {
+    if (raf) { cancelAnimationFrame(raf); raf = 0; }
+  }
+  function startInertia() {
+    stopInertia();
+    if (reduceMotion || Math.hypot(vel.x, vel.y) < 0.05) return;
+    var prev = performance.now();
+    function step(t) {
+      var dt = Math.min(48, Math.max(1, t - prev));
+      prev = t;
+      var tx = st.x + vel.x * dt;
+      var ty = st.y + vel.y * dt;
+      st.x = tx;
+      st.y = ty;
+      apply();
+      if (Math.abs(st.x - tx) > 0.5) vel.x = 0;
+      if (Math.abs(st.y - ty) > 0.5) vel.y = 0;
+      var k = Math.exp(-dt / 325);
+      vel.x *= k;
+      vel.y *= k;
+      if (Math.hypot(vel.x, vel.y) < 0.02) { raf = 0; return; }
+      raf = requestAnimationFrame(step);
+    }
+    raf = requestAnimationFrame(step);
+  }
 
   function box() { return stage.getBoundingClientRect(); }
   function rel(e) {
@@ -238,6 +269,10 @@
   }
 
   stage.addEventListener('pointerdown', function (e) {
+    stopInertia();
+    vel.x = 0;
+    vel.y = 0;
+    lastT = performance.now();
     try { stage.setPointerCapture(e.pointerId); } catch (err) {}
     ptrs[e.pointerId] = rel(e);
     if (count() === 1) {
@@ -265,6 +300,11 @@
       st.y = mid.y - ns * gesture.q.y;
       apply();
     } else if (count() === 1 && st.s > 1 && last) {
+      var nowT = performance.now();
+      var dtm = Math.max(1, nowT - lastT);
+      vel.x = 0.7 * ((p.x - last.x) / dtm) + 0.3 * vel.x;
+      vel.y = 0.7 * ((p.y - last.y) / dtm) + 0.3 * vel.y;
+      lastT = nowT;
       st.x += p.x - last.x;
       st.y += p.y - last.y;
       last = p;
@@ -292,6 +332,7 @@
           lastTap = { t: now, x: e.clientX, y: e.clientY };
         }
       }
+      if (e.type === 'pointerup' && st.s > 1 && !(tap && tap.multi) && performance.now() - lastT < 80) startInertia();
       tap = null;
     }
   }
@@ -300,6 +341,7 @@
 
   stage.addEventListener('wheel', function (e) {
     e.preventDefault();
+    stopInertia();
     zoomAt(rel(e), st.s * Math.exp(-e.deltaY * 0.0022));
   }, { passive: false });
 
@@ -346,7 +388,7 @@
   }
 
   var currentUrl = null;
-  function resetView() { st.s = 1; st.x = 0; st.y = 0; }
+  function resetView() { stopInertia(); st.s = 1; st.x = 0; st.y = 0; }
   function showBlob(blob) {
     if (currentUrl) { try { URL.revokeObjectURL(currentUrl); } catch (e) {} }
     currentUrl = URL.createObjectURL(blob);
