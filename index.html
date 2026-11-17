@@ -348,10 +348,19 @@
     }, 120);
   }
   [opEl, sxEl, syEl].forEach(function (inp) {
-    inp.addEventListener('pointerdown', function () { startFade(inp.closest('.setting-row')); });
-    inp.addEventListener('pointerup', endFade);
-    inp.addEventListener('pointercancel', endFade);
-  });
+  // Для ширины и высоты — интерфейс исчезает
+[sxEl, syEl].forEach(function (inp) {
+  inp.addEventListener('pointerdown', function () { startFade(inp.closest('.setting-row')); });
+  inp.addEventListener('pointerup', endFade);
+  inp.addEventListener('pointercancel', endFade);
+});
+
+// Для прозрачности — интерфейс остаётся, шестерёнка видна
+opEl.addEventListener('pointerdown', function () {
+  document.body.classList.remove('ui-fading');
+  var old = sheet.querySelector('.keep');
+  if (old) old.classList.remove('keep');
+});
 
   /* ---------- настройки ---------- */
   function openSheet() { note.textContent = NOTE_DEFAULT; sheetWrap.hidden = false; }
