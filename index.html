@@ -1,469 +1,384 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="ru">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Моё фото</title>
-<meta name="theme-color" content="#0c0e11">
-<link rel="manifest" href="manifest.webmanifest">
-<link rel="icon" type="image/png" href="icon-192.png">
-<link rel="apple-touch-icon" href="apple-touch-icon.png">
-<meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="Фото">
-<meta name="apple-mobile-web-app-status-bar-style" content="black">
-<style>
-  :root {
-    --bg: #0c0e11;
-    --fg: #eceff4;
-    --muted: #9aa3b2;
-    --surface: #171a20;
-    --line: #2b303a;
-    --accent: #8ab8ff;
-    --accent-ink: #0b1220;
-    --scrim: rgba(5, 7, 10, 0.55);
-    --font: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
-    color-scheme: dark;
-  }
-  html, body { margin: 0; height: 100%; background: var(--bg); }
-  body {
-    position: relative;
-    overflow: hidden;
-    color: var(--fg);
-    font-family: var(--font);
-    -webkit-tap-highlight-color: transparent;
-    overscroll-behavior: none;
-  }
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Моё фото</title>
+  <meta name="theme-color" content="#000000">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" type="image/png" href="icon-192.png">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <style>
+    * { box-sizing: border-box; touch-action: none; user-select: none; -webkit-user-select: none; }
+    html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #000; color: #fff; font-family: system-ui, -apple-system, sans-serif; }
+    #stage { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; }
+    #img { max-width: 100%; max-height: 100%; object-fit: contain; transform-origin: center center; will-change: transform; }
+    
+    #gear {
+      position: absolute; top: 16px; right: 16px; width: 46px; height: 46px;
+      background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.2); border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; z-index: 10; transition: background 0.2s;
+      backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+    }
+    #gear:active { background: rgba(255,255,255,0.3); }
+    #gear svg { width: 24px; height: 24px; fill: #fff; }
 
-  .stage {
-    position: absolute;
-    inset: 0;
-    overflow: hidden;
-    touch-action: none;
-    user-select: none;
-    -webkit-user-select: none;
-  }
-  .photo {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-    object-fit: contain;
-    transform-origin: 50% 50%;
-    will-change: transform;
-    pointer-events: none;
-    -webkit-user-drag: none;
-  }
+    .sheet-wrap {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.6);
+      display: flex; align-items: flex-end; z-index: 20;
+    }
+    .sheet-wrap[hidden] { display: none; }
+    .sheet {
+      width: 100%; background: #1a1a1a; border-top: 1px solid #333; border-radius: 18px 18px 0 0;
+      padding: 20px; display: flex; flex-direction: column; gap: 12px;
+      animation: slideUp 0.25s ease-out;
+    }
+    @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+    .sheet h1 { margin: 0 0 8px 0; font-size: 18px; text-align: center; font-weight: 600; }
+    .note { font-size: 13px; color: #aaa; text-align: center; margin: 0 0 12px 0; }
+    
+    .setting-row { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+    .setting-row label { font-size: 14px; color: #ccc; display: flex; justify-content: space-between; }
+    .setting-row input[type="range"] { width: 100%; accent-color: #8ab8ff; }
 
-  .ui {
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-    padding-left: max(16px, env(safe-area-inset-left, 0px));
-    padding-right: max(16px, env(safe-area-inset-right, 0px));
-    padding-top: max(12px, env(safe-area-inset-top, 0px));
-    box-sizing: border-box;
-    display: flex;
-    flex-direction: column;
-    align-items: flex-end;
-  }
-  .gear {
-    pointer-events: auto;
-    width: 46px;
-    height: 46px;
-    border-radius: 50%;
-    border: 1px solid rgba(255, 255, 255, 0.18);
-    background: rgba(12, 14, 17, 0.55);
-    -webkit-backdrop-filter: blur(8px);
-    backdrop-filter: blur(8px);
-    color: var(--fg);
-    display: grid;
-    place-items: center;
-    padding: 0;
-    cursor: pointer;
-  }
-  .gear svg { width: 22px; height: 22px; }
-
-  .sheet-wrap {
-    position: absolute;
-    inset: 0;
-    display: flex;
-    align-items: flex-end;
-    background: var(--scrim);
-    z-index: 5;
-  }
-  .sheet-wrap[hidden] { display: none; }
-  .sheet {
-    width: 100%;
-    box-sizing: border-box;
-    background: var(--surface);
-    border-top: 1px solid var(--line);
-    border-radius: 18px 18px 0 0;
-    padding-top: 20px;
-    padding-bottom: max(16px, env(safe-area-inset-bottom, 0px));
-    padding-left: max(16px, env(safe-area-inset-left, 0px));
-    padding-right: max(16px, env(safe-area-inset-right, 0px));
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    animation: rise 0.2s ease-out;
-  }
-  @keyframes rise { from { transform: translateY(24px); opacity: 0; } to { transform: none; opacity: 1; } }
-  @media (prefers-reduced-motion: reduce) { .sheet { animation: none; } }
-
-  .sheet h1 { margin: 0 0 4px; font-size: 18px; font-weight: 600; letter-spacing: -0.01em; }
-  .note { margin: 0 0 6px; font-size: 14px; line-height: 1.45; color: var(--muted); min-height: 1.45em; }
-  .btn {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    box-sizing: border-box;
-    font: inherit;
-    font-size: 16px;
-    font-weight: 500;
-    min-height: 50px;
-    border-radius: 12px;
-    border: 1px solid var(--line);
-    background: transparent;
-    color: var(--fg);
-    cursor: pointer;
-    text-align: center;
-  }
-  .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
-  .gear:focus-visible, .btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-  .file-hidden { position: absolute; width: 1px; height: 1px; opacity: 0; overflow: hidden; pointer-events: none; }
-  .file-hidden:focus + .btn { outline: 2px solid var(--accent); outline-offset: 2px; }
-</style>
+    .btn {
+      width: 100%; padding: 14px; border: 1px solid #333; border-radius: 12px;
+      font-size: 16px; font-weight: 500; cursor: pointer; text-align: center; background: transparent; color: #fff;
+    }
+    .btn.primary { background: #8ab8ff; border-color: #8ab8ff; color: #0b1220; font-weight: 600; }
+    .btn:active { opacity: 0.8; }
+    .file-hidden { display: none; }
+  </style>
 </head>
 <body>
 
-<div class="stage" id="stage">
-  <img class="photo" id="photo" alt="Фото" draggable="false">
+<div id="stage">
+  <img id="img" alt="Фото" draggable="false">
 </div>
 
-<div class="ui">
-  <button class="gear" id="gear" type="button" aria-label="Настройки">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-      <circle cx="12" cy="12" r="3"></circle>
-      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
-    </svg>
-  </button>
-</div>
+<button id="gear" aria-label="Настройки">
+  <svg viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.488.488 0 0 0-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.484.484 0 0 0-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>
+</button>
 
 <div class="sheet-wrap" id="sheetWrap" hidden>
   <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
     <h1 id="sheetTitle">Настройки</h1>
-    <p class="note" id="note">Фото хранится только на этом телефоне.</p>
+    <p class="note" id="note">Фото и настройки хранятся только на этом телефоне.</p>
+    
     <input type="file" id="file" class="file-hidden" accept="image/*">
-    <label class="btn primary" for="file" id="pick">Выбрать новое фото</label>
-    <button class="btn" id="reset" type="button">Вернуть пример</button>
-    <button class="btn" id="close" type="button">Готово</button>
+    <label class="btn primary" for="file">📁 Выбрать новое фото</label>
+    
+    <div class="setting-row">
+      <label>Прозрачность кнопки <span id="opacityVal">100%</span></label>
+      <input type="range" id="gearOpacity" min="0.1" max="1" step="0.1" value="1">
+    </div>
+
+    <div class="setting-row">
+      <label>Масштаб по ширине <span id="scaleXVal">1.0x</span></label>
+      <input type="range" id="scaleX" min="0.1" max="3" step="0.1" value="1">
+    </div>
+
+    <div class="setting-row">
+      <label>Масштаб по высоте <span id="scaleYVal">1.0x</span></label>
+      <input type="range" id="scaleY" min="0.1" max="3" step="0.1" value="1">
+    </div>
+
+    <button class="btn" id="resetTransform" type="button">🔄 Сбросить размер и положение</button>
+    <button class="btn" id="reset" type="button">Вернуть пример по умолчанию</button>
+    <button class="btn primary" id="close" type="button" style="margin-top: 8px;">Готово</button>
   </div>
 </div>
 
 <script>
-(function () {
-  var stage = document.getElementById('stage');
-  var img = document.getElementById('photo');
-  var sheetWrap = document.getElementById('sheetWrap');
-  var note = document.getElementById('note');
-  var fileInput = document.getElementById('file');
-  var NOTE_DEFAULT = 'Фото хранится только на этом телефоне.';
+const stage = document.getElementById('stage');
+const img = document.getElementById('img');
+const gear = document.getElementById('gear');
+const sheetWrap = document.getElementById('sheetWrap');
+const fileInput = document.getElementById('file');
+const note = document.getElementById('note');
+const NOTE_DEFAULT = 'Фото и настройки хранятся только на этом телефоне.';
 
-  var SAMPLE_SVG =
-    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 1600">' +
-    '<defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1">' +
-    '<stop offset="0" stop-color="#1c2a4a"/><stop offset="0.55" stop-color="#b5546b"/><stop offset="1" stop-color="#f0a35e"/>' +
-    '</linearGradient></defs>' +
-    '<rect width="1200" height="1600" fill="url(#g)"/>' +
-    '<circle cx="840" cy="980" r="130" fill="#ffd9a0" opacity="0.9"/>' +
-    '<path d="M0 1180 L220 900 L400 1080 L620 780 L860 1100 L1020 940 L1200 1120 L1200 1600 L0 1600Z" fill="#15192b"/>' +
-    '<path d="M0 1380 L300 1200 L560 1330 L860 1180 L1200 1360 L1200 1600 L0 1600Z" fill="#0d1020"/>' +
-    '<text x="600" y="330" text-anchor="middle" font-family="Arial, sans-serif" font-size="64" fill="#ffffff">Здесь будет твоё фото</text>' +
-    '<text x="600" y="420" text-anchor="middle" font-family="Arial, sans-serif" font-size="40" fill="#ffffff" opacity="0.85">Настройки → Выбрать новое фото</text>' +
-    '</svg>';
-  var SAMPLE = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(SAMPLE_SVG);
+const MAXS = 8;
+let st = { sx: 1, sy: 1, x: 0, y: 0 };
+let ptrs = {};
+let tap = null;
+let last = null;
+let vel = { x: 0, y: 0 };
+let lastT = 0;
+let raf = 0;
+let reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-  /* ---------- zoom and pan ---------- */
-  var MAXS = 8;
-  var st = { s: 1, x: 0, y: 0 };
-  var ptrs = {};
-  var gesture = null;
-  var tap = null;
-  var lastTap = { t: 0, x: 0, y: 0 };
-  var last = null;
-  var vel = { x: 0, y: 0 };
-  var lastT = 0;
-  var raf = 0;
-  var reduceMotion = false;
-  try { reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) {}
+function openDb() {
+  return new Promise((resolve, reject) => {
+    const r = indexedDB.open('photo-app-v2', 1);
+    r.onupgradeneeded = () => r.result.createObjectStore('kv');
+    r.onsuccess = () => resolve(r.result);
+    r.onerror = () => reject(r.error);
+  });
+}
+function dbGet(key) {
+  return openDb().then(db => new Promise((resolve, reject) => {
+    const q = db.transaction('kv').objectStore('kv').get(key);
+    q.onsuccess = () => resolve(q.result);
+    q.onerror = () => reject(q.error);
+  }));
+}
+function dbPut(key, val) {
+  return openDb().then(db => new Promise((resolve, reject) => {
+    const tx = db.transaction('kv', 'readwrite');
+    tx.objectStore('kv').put(val, key);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  }));
+}
 
-  function stopInertia() {
-    if (raf) { cancelAnimationFrame(raf); raf = 0; }
-  }
-  function startInertia() {
-    stopInertia();
-    if (reduceMotion || Math.hypot(vel.x, vel.y) < 0.05) return;
-    var prev = performance.now();
-    function step(t) {
-      var dt = Math.min(48, Math.max(1, t - prev));
-      prev = t;
-      var tx = st.x + vel.x * dt;
-      var ty = st.y + vel.y * dt;
-      st.x = tx;
-      st.y = ty;
-      apply();
-      if (Math.abs(st.x - tx) > 0.5) vel.x = 0;
-      if (Math.abs(st.y - ty) > 0.5) vel.y = 0;
-      var k = Math.exp(-dt / 325);
-      vel.x *= k;
-      vel.y *= k;
-      if (Math.hypot(vel.x, vel.y) < 0.02) { raf = 0; return; }
-      raf = requestAnimationFrame(step);
+function saveSettings() {
+  const settings = {
+    sx: st.sx,
+    sy: st.sy,
+    opacity: parseFloat(document.getElementById('gearOpacity').value)
+  };
+  dbPut('settings', settings).catch(() => {});
+}
+
+function loadSettings() {
+  dbGet('settings').then(s => {
+    if (s) {
+      st.sx = s.sx || 1;
+      st.sy = s.sy || 1;
+      document.getElementById('scaleX').value = st.sx;
+      document.getElementById('scaleXVal').textContent = st.sx.toFixed(1) + 'x';
+      document.getElementById('scaleY').value = st.sy;
+      document.getElementById('scaleYVal').textContent = st.sy.toFixed(1) + 'x';
+      
+      const op = s.opacity !== undefined ? s.opacity : 1;
+      document.getElementById('gearOpacity').value = op;
+      document.getElementById('opacityVal').textContent = Math.round(op * 100) + '%';
+      gear.style.opacity = op;
     }
-    raf = requestAnimationFrame(step);
-  }
+  }).catch(() => {});
+}
 
-  function box() { return stage.getBoundingClientRect(); }
-  function rel(e) {
-    var b = box();
-    return { x: e.clientX - b.left - b.width / 2, y: e.clientY - b.top - b.height / 2 };
+function box() { return stage.getBoundingClientRect(); }
+function fitted() {
+  const b = box();
+  const nw = img.naturalWidth || b.width;
+  const nh = img.naturalHeight || b.height;
+  const k = Math.min(b.width / nw, b.height / nh);
+  return { w: nw * k, h: nh * k };
+}
+function clampPan() {
+  const b = box(), f = fitted();
+  const currentW = f.w * st.sx;
+  const currentH = f.h * st.sy;
+  const mx = Math.max(0, (currentW - b.width) / 2);
+  const my = Math.max(0, (currentH - b.height) / 2);
+  st.x = Math.min(mx, Math.max(-mx, st.x));
+  st.y = Math.min(my, Math.max(-my, st.y));
+}
+function apply() {
+  clampPan();
+  img.style.transform = `translate(${st.x}px, ${st.y}px) scale(${st.sx}, ${st.sy})`;
+}
+
+function count() { return Object.keys(ptrs).length; }
+function stopInertia() { if (raf) { cancelAnimationFrame(raf); raf = 0; } }
+function startInertia() {
+  stopInertia();
+  if (reduceMotion || Math.hypot(vel.x, vel.y) < 0.05) return;
+  let prev = performance.now();
+  function step(t) {
+    const dt = Math.min(32, t - prev);
+    prev = t;
+    st.x += vel.x * dt;
+    st.y += vel.y * dt;
+    vel.x *= 0.92;
+    vel.y *= 0.92;
+    apply();
+    if (Math.hypot(vel.x, vel.y) > 0.05) raf = requestAnimationFrame(step);
   }
-  function fitted() {
-    var b = box();
-    var nw = img.naturalWidth || b.width;
-    var nh = img.naturalHeight || b.height;
-    var k = Math.min(b.width / nw, b.height / nh);
-    return { w: nw * k, h: nh * k };
+  raf = requestAnimationFrame(step);
+}
+
+function zoomAt(p, factor) {
+  const newSx = Math.min(MAXS, Math.max(0.1, st.sx * factor));
+  const newSy = Math.min(MAXS, Math.max(0.1, st.sy * factor));
+  const qx = (p.x - st.x) / st.sx;
+  const qy = (p.y - st.y) / st.sy;
+  st.sx = newSx;
+  st.sy = newSy;
+  st.x = p.x - st.sx * qx;
+  st.y = p.y - st.sy * qy;
+  
+  document.getElementById('scaleX').value = st.sx;
+  document.getElementById('scaleXVal').textContent = st.sx.toFixed(1) + 'x';
+  document.getElementById('scaleY').value = st.sy;
+  document.getElementById('scaleYVal').textContent = st.sy.toFixed(1) + 'x';
+  apply();
+  saveSettings();
+}
+
+stage.addEventListener('pointerdown', e => {
+  stopInertia();
+  vel.x = 0; vel.y = 0;
+  lastT = performance.now();
+  try { stage.setPointerCapture(e.pointerId); } catch(err) {}
+  const b = box();
+  const p = { x: e.clientX - b.left - b.width / 2, y: e.clientY - b.top - b.height / 2 };
+  ptrs[e.pointerId] = p;
+  if (count() === 1) {
+    last = p;
+    tap = { t: Date.now(), x: e.clientX, y: e.clientY, moved: false, multi: false };
+  } else if (count() === 2) {
+    if (tap) tap.multi = true;
   }
-  function clampPan() {
-    var b = box(), f = fitted();
-    var mx = Math.max(0, (f.w * st.s - b.width) / 2);
-    var my = Math.max(0, (f.h * st.s - b.height) / 2);
-    st.x = Math.min(mx, Math.max(-mx, st.x));
-    st.y = Math.min(my, Math.max(-my, st.y));
-  }
-  function apply() {
-    clampPan();
-    img.style.transform = 'translate(' + st.x + 'px,' + st.y + 'px) scale(' + st.s + ')';
-  }
-  function zoomAt(p, ns) {
-    ns = Math.min(MAXS, Math.max(1, ns));
-    var qx = (p.x - st.x) / st.s;
-    var qy = (p.y - st.y) / st.s;
-    st.s = ns;
-    st.x = p.x - ns * qx;
-    st.y = p.y - ns * qy;
+});
+
+stage.addEventListener('pointermove', e => {
+  if (!ptrs[e.pointerId]) return;
+  const b = box();
+  const p = { x: e.clientX - b.left - b.width / 2, y: e.clientY - b.top - b.height / 2 };
+  if (tap && Math.hypot(e.clientX - tap.x, e.clientY - tap.y) > 8) tap.moved = true;
+  
+  if (count() >= 2) {
+    const ids = Object.keys(ptrs);
+    const p1 = ptrs[ids[0]], p2 = ptrs[ids[1]];
+    const dist = Math.hypot(p2.x - p1.x, p2.y - p1.y);
+    if (!this.lastDist) this.lastDist = dist;
+    const factor = dist / this.lastDist;
+    if (factor > 0.5 && factor < 2) {
+      zoomAt({x: (p1.x+p2.x)/2, y: (p1.y+p2.y)/2}, factor);
+    }
+    this.lastDist = dist;
+  } else if (count() === 1 && st.sx > 0.15 && last) {
+    const dx = p.x - last.x;
+    const dy = p.y - last.y;
+    const now = performance.now();
+    const dt = now - lastT;
+    if (dt > 0) { vel.x = dx / dt; vel.y = dy / dt; }
+    st.x += dx;
+    st.y += dy;
+    last = p;
+    lastT = now;
     apply();
   }
-  function count() { return Object.keys(ptrs).length; }
-  function startPinch() {
-    var ids = Object.keys(ptrs);
-    var a = ptrs[ids[0]], b = ptrs[ids[1]];
-    var mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
-    gesture = {
-      d0: Math.max(1, Math.hypot(a.x - b.x, a.y - b.y)),
-      s0: st.s,
-      q: { x: (mid.x - st.x) / st.s, y: (mid.y - st.y) / st.s }
-    };
-  }
+  ptrs[e.pointerId] = p;
+});
 
-  stage.addEventListener('pointerdown', function (e) {
-    stopInertia();
-    vel.x = 0;
-    vel.y = 0;
-    lastT = performance.now();
-    try { stage.setPointerCapture(e.pointerId); } catch (err) {}
-    ptrs[e.pointerId] = rel(e);
-    if (count() === 1) {
-      last = rel(e);
-      tap = { t: Date.now(), x: e.clientX, y: e.clientY, moved: false, multi: false };
-    } else {
-      if (tap) tap.multi = true;
-      if (count() === 2) startPinch();
-    }
-  });
-
-  stage.addEventListener('pointermove', function (e) {
-    if (!ptrs[e.pointerId]) return;
-    var p = rel(e);
-    ptrs[e.pointerId] = p;
-    if (tap && Math.hypot(e.clientX - tap.x, e.clientY - tap.y) > 8) tap.moved = true;
-    if (count() >= 2 && gesture) {
-      var ids = Object.keys(ptrs);
-      var a = ptrs[ids[0]], b = ptrs[ids[1]];
-      var d = Math.hypot(a.x - b.x, a.y - b.y);
-      var mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
-      var ns = Math.min(MAXS, Math.max(1, gesture.s0 * d / gesture.d0));
-      st.s = ns;
-      st.x = mid.x - ns * gesture.q.x;
-      st.y = mid.y - ns * gesture.q.y;
-      apply();
-    } else if (count() === 1 && st.s > 1 && last) {
-      var nowT = performance.now();
-      var dtm = Math.max(1, nowT - lastT);
-      vel.x = 0.7 * ((p.x - last.x) / dtm) + 0.3 * vel.x;
-      vel.y = 0.7 * ((p.y - last.y) / dtm) + 0.3 * vel.y;
-      lastT = nowT;
-      st.x += p.x - last.x;
-      st.y += p.y - last.y;
-      last = p;
-      apply();
-    } else {
-      last = p;
-    }
-  });
-
-  function endPointer(e) {
-    if (!ptrs[e.pointerId]) return;
-    delete ptrs[e.pointerId];
-    gesture = null;
-    var left = Object.keys(ptrs);
-    if (left.length === 1) {
-      last = ptrs[left[0]];
-    } else if (left.length === 0) {
-      last = null;
-      if (e.type === 'pointerup' && tap && !tap.moved && !tap.multi && Date.now() - tap.t < 300) {
-        var now = Date.now();
-        if (now - lastTap.t < 320 && Math.hypot(e.clientX - lastTap.x, e.clientY - lastTap.y) < 30) {
-          zoomAt(rel(e), st.s > 1.05 ? 1 : 2.5);
-          lastTap.t = 0;
-        } else {
-          lastTap = { t: now, x: e.clientX, y: e.clientY };
-        }
+function endPointer(e) {
+  delete ptrs[e.pointerId];
+  this.lastDist = null;
+  if (count() === 0) {
+    if (tap && !tap.moved && !tap.multi && (Date.now() - tap.t < 300)) {
+      if (tap.isDouble) {
+        st.sx = 1; st.sy = 1; st.x = 0; st.y = 0;
+        document.getElementById('scaleX').value = 1;
+        document.getElementById('scaleY').value = 1;
+        document.getElementById('scaleXVal').textContent = '1.0x';
+        document.getElementById('scaleYVal').textContent = '1.0x';
+        apply();
+        saveSettings();
+      } else {
+        tap.isDouble = true;
+        setTimeout(() => { tap.isDouble = false; }, 300);
       }
-      if (e.type === 'pointerup' && st.s > 1 && !(tap && tap.multi) && performance.now() - lastT < 80) startInertia();
-      tap = null;
     }
+    startInertia();
+    tap = null;
+    last = null;
   }
-  stage.addEventListener('pointerup', endPointer);
-  stage.addEventListener('pointercancel', endPointer);
+}
+stage.addEventListener('pointerup', endPointer);
+stage.addEventListener('pointercancel', endPointer);
 
-  stage.addEventListener('wheel', function (e) {
-    e.preventDefault();
-    stopInertia();
-    zoomAt(rel(e), st.s * Math.exp(-e.deltaY * 0.0022));
-  }, { passive: false });
+stage.addEventListener('wheel', e => {
+  e.preventDefault();
+  stopInertia();
+  const b = box();
+  const p = { x: e.clientX - b.left - b.width / 2, y: e.clientY - b.top - b.height / 2 };
+  zoomAt(p, Math.exp(-e.deltaY * 0.002));
+}, { passive: false });
 
-  window.addEventListener('resize', apply);
-  img.addEventListener('load', apply);
+function openSheet() { note.textContent = NOTE_DEFAULT; sheetWrap.hidden = false; }
+function closeSheet() { sheetWrap.hidden = true; saveSettings(); }
 
-  /* ---------- saved photo (stays in this browser) ---------- */
-  function openDb() {
-    return new Promise(function (resolve, reject) {
-      var r = indexedDB.open('photo-app', 1);
-      r.onupgradeneeded = function () { r.result.createObjectStore('kv'); };
-      r.onsuccess = function () { resolve(r.result); };
-      r.onerror = function () { reject(r.error); };
+gear.addEventListener('click', openSheet);
+document.getElementById('close').addEventListener('click', closeSheet);
+
+document.getElementById('gearOpacity').addEventListener('input', e => {
+  const val = parseFloat(e.target.value);
+  gear.style.opacity = val;
+  document.getElementById('opacityVal').textContent = Math.round(val * 100) + '%';
+  saveSettings();
+});
+
+document.getElementById('scaleX').addEventListener('input', e => {
+  st.sx = parseFloat(e.target.value);
+  document.getElementById('scaleXVal').textContent = st.sx.toFixed(1) + 'x';
+  apply();
+  saveSettings();
+});
+
+document.getElementById('scaleY').addEventListener('input', e => {
+  st.sy = parseFloat(e.target.value);
+  document.getElementById('scaleYVal').textContent = st.sy.toFixed(1) + 'x';
+  apply();
+  saveSettings();
+});
+
+document.getElementById('resetTransform').addEventListener('click', () => {
+  st.sx = 1; st.sy = 1; st.x = 0; st.y = 0;
+  document.getElementById('scaleX').value = 1;
+  document.getElementById('scaleY').value = 1;
+  document.getElementById('scaleXVal').textContent = '1.0x';
+  document.getElementById('scaleYVal').textContent = '1.0x';
+  apply();
+  saveSettings();
+});
+
+const SAMPLE_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 1600"><defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1c2a4a"/><stop offset="0.55" stop-color="#b5546b"/><stop offset="1" stop-color="#f0a35e"/></linearGradient></defs><rect width="1200" height="1600" fill="url(#g)"/><circle cx="840" cy="980" r="130" fill="#ffd9a0" opacity="0.9"/><path d="M0 1180 L220 900 L400 1080 L620 780 L860 1100 L1020 940 L1200 1120 L1200 1600 L0 1600Z" fill="#15192b"/><path d="M0 1380 L300 1200 L560 1330 L860 1180 L1200 1360 L1200 1600 L0 1600Z" fill="#0d1020"/><text x="600" y="330" text-anchor="middle" font-family="Arial, sans-serif" font-size="64" fill="#ffffff">Здесь будет твоё фото</text><text x="600" y="420" text-anchor="middle" font-family="Arial, sans-serif" font-size="40" fill="#ffffff" opacity="0.85">Настройки → Выбрать новое фото</text></svg>';
+const SAMPLE = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(SAMPLE_SVG);
+
+document.getElementById('reset').addEventListener('click', () => {
+  img.src = SAMPLE;
+  dbPut('photo', null).catch(() => {});
+  st.sx = 1; st.sy = 1; st.x = 0; st.y = 0;
+  apply();
+  closeSheet();
+});
+
+fileInput.addEventListener('change', () => {
+  const file = fileInput.files && fileInput.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    img.src = e.target.result;
+    st.sx = 1; st.sy = 1; st.x = 0; st.y = 0;
+    document.getElementById('scaleX').value = 1;
+    document.getElementById('scaleY').value = 1;
+    apply();
+    dbPut('photo', e.target.result).then(() => {
+      closeSheet();
+    }).catch(() => {
+      note.textContent = 'Фото показано, но не сохранилось (возможно, слишком большое).';
     });
-  }
-  function dbGet(key) {
-    return openDb().then(function (db) {
-      return new Promise(function (resolve, reject) {
-        var q = db.transaction('kv').objectStore('kv').get(key);
-        q.onsuccess = function () { resolve(q.result); };
-        q.onerror = function () { reject(q.error); };
-      });
-    });
-  }
-  function dbPut(key, val) {
-    return openDb().then(function (db) {
-      return new Promise(function (resolve, reject) {
-        var tx = db.transaction('kv', 'readwrite');
-        tx.objectStore('kv').put(val, key);
-        tx.oncomplete = function () { resolve(); };
-        tx.onerror = function () { reject(tx.error); };
-      });
-    });
-  }
-  function dbDel(key) {
-    return openDb().then(function (db) {
-      return new Promise(function (resolve, reject) {
-        var tx = db.transaction('kv', 'readwrite');
-        tx.objectStore('kv').delete(key);
-        tx.oncomplete = function () { resolve(); };
-        tx.onerror = function () { reject(tx.error); };
-      });
-    });
-  }
+  };
+  reader.readAsDataURL(file);
+  fileInput.value = '';
+});
 
-  var currentUrl = null;
-  function resetView() { stopInertia(); st.s = 1; st.x = 0; st.y = 0; }
-  function showBlob(blob) {
-    if (currentUrl) { try { URL.revokeObjectURL(currentUrl); } catch (e) {} }
-    currentUrl = URL.createObjectURL(blob);
-    resetView();
-    img.src = currentUrl;
-  }
-  function showSample() {
-    if (currentUrl) { try { URL.revokeObjectURL(currentUrl); } catch (e) {} currentUrl = null; }
-    resetView();
-    img.src = SAMPLE;
-  }
+window.addEventListener('load', () => {
+  loadSettings();
+  dbGet('photo').then(saved => {
+    if (saved) img.src = saved;
+    else img.src = SAMPLE;
+  }).catch(() => { img.src = SAMPLE; });
+});
 
-  function downscale(file) {
-    return new Promise(function (resolve, reject) {
-      var url = URL.createObjectURL(file);
-      var im = new Image();
-      im.onload = function () {
-        var k = Math.min(1, 2560 / Math.max(im.naturalWidth, im.naturalHeight));
-        var c = document.createElement('canvas');
-        c.width = Math.round(im.naturalWidth * k);
-        c.height = Math.round(im.naturalHeight * k);
-        c.getContext('2d').drawImage(im, 0, 0, c.width, c.height);
-        URL.revokeObjectURL(url);
-        c.toBlob(function (b) { b ? resolve(b) : reject(new Error('blob')); }, 'image/jpeg', 0.92);
-      };
-      im.onerror = function () { URL.revokeObjectURL(url); reject(new Error('decode')); };
-      im.src = url;
-    });
-  }
-
-  /* ---------- settings sheet ---------- */
-  function openSheet() { note.textContent = NOTE_DEFAULT; sheetWrap.hidden = false; }
-  function closeSheet() { sheetWrap.hidden = true; }
-  document.getElementById('gear').addEventListener('click', openSheet);
-  document.getElementById('close').addEventListener('click', closeSheet);
-  sheetWrap.addEventListener('click', function (e) { if (e.target === sheetWrap) closeSheet(); });
-  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeSheet(); });
-
-  fileInput.addEventListener('change', function () {
-    var file = fileInput.files && fileInput.files[0];
-    if (!file) return;
-    var ready = file.size > 8 * 1024 * 1024 ? downscale(file) : Promise.resolve(file);
-    ready.then(function (blob) {
-      showBlob(blob);
-      return dbPut('photo', blob).then(
-        function () { closeSheet(); },
-        function () {
-          note.textContent = 'Фото показано, но не сохранилось. После закрытия приложения вернётся прошлое.';
-        }
-      );
-    }).catch(function () {
-      note.textContent = 'Не удалось открыть этот файл. Выбери фото в формате JPG или PNG.';
-    }).then(function () {
-      try { fileInput.value = ''; } catch (e) {}
-    });
-  });
-
-  document.getElementById('reset').addEventListener('click', function () {
-    showSample();
-    dbDel('photo').catch(function () {});
-    closeSheet();
-  });
-
-  /* ---------- start ---------- */
-  showSample();
-  dbGet('photo').then(function (blob) {
-    if (blob) showBlob(blob);
-  }).catch(function () {});
-
-  if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
-    window.addEventListener('load', function () {
-      navigator.serviceWorker.register('sw.js').catch(function () {});
-    });
-  }
-})();
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+}
 </script>
 </body>
 </html>
