@@ -11,8 +11,8 @@
   <style>
     * { box-sizing: border-box; touch-action: none; user-select: none; -webkit-user-select: none; }
     html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #000; color: #fff; font-family: system-ui, -apple-system, sans-serif; }
-    #stage { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; }
-    #img { max-width: 100%; max-height: 100%; object-fit: contain; transform-origin: center center; will-change: transform; }
+    #stage { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; position: relative; }
+    #img { max-width: 100%; max-height: 100%; object-fit: contain; transform-origin: 0 0; will-change: transform; position: absolute; top: 50%; left: 50%; }
     
     #gear {
       position: absolute; top: 16px; right: 16px; width: 46px; height: 46px;
@@ -100,9 +100,11 @@ const note = document.getElementById('note');
 const NOTE_DEFAULT = 'Фото и настройки хранятся только на этом телефоне.';
 
 const MAXS = 8;
+const MINS = 0.1;
 let st = { sx: 1, sy: 1, x: 0, y: 0 };
 let ptrs = {};
 let tap = null;
+let lastTapTime = 0;
 let last = null;
 let vel = { x: 0, y: 0 };
 let lastT = 0;
@@ -168,6 +170,7 @@ function fitted() {
   const k = Math.min(b.width / nw, b.height / nh);
   return { w: nw * k, h: nh * k };
 }
+
 function clampPan() {
   const b = box(), f = fitted();
   const currentW = f.w * st.sx;
@@ -177,9 +180,16 @@ function clampPan() {
   st.x = Math.min(mx, Math.max(-mx, st.x));
   st.y = Math.min(my, Math.max(-my, st.y));
 }
+
 function apply() {
   clampPan();
-  img.style.transform = `translate(${st.x}px, ${st.y}px) scale(${st.sx}, ${st.sy})`;
+  const b = box();
+  const f = fitted();
+  const centerX = b.width / 2;
+  const centerY = b.height / 2;
+  const imgX = centerX + st.x - (f.w * st.sx) / 2;
+  const imgY = centerY + st.y - (f.h * st.sy) / 2;
+  img.style.transform = `translate(${imgX}px, ${imgY}px) scale(${st.sx}, ${st.sy})`;
 }
 
 function count() { return Object.keys(ptrs).length; }
@@ -202,10 +212,12 @@ function startInertia() {
 }
 
 function zoomAt(p, factor) {
-  const newSx = Math.min(MAXS, Math.max(0.1, st.sx * factor));
-  const newSy = Math.min(MAXS, Math.max(0.1, st.sy * factor));
+  const newSx = Math.min(MAXS, Math.max(MINS, st.sx * factor));
+  const newSy = Math.min(MAXS, Math.max(MINS, st.sy * factor));
+  
   const qx = (p.x - st.x) / st.sx;
   const qy = (p.y - st.y) / st.sy;
+  
   st.sx = newSx;
   st.sy = newSy;
   st.x = p.x - st.sx * qx;
@@ -214,6 +226,31 @@ function zoomAt(p, factor) {
   document.getElementById('scaleX').value = st.sx;
   document.getElementById('scaleXVal').textContent = st.sx.toFixed(1) + 'x';
   document.getElementById('scaleY').value = st.sy;
+  document.getElementById('scaleYVal').textContent = st.sy.toFixed(1) + 'x';
+  
+  apply();
+  saveSettings();
+}
+
+function doubleTapZoom(e) {
+  const b = box();
+  const p = { x: e.clientX - b.left - b.width / 2, y: e.clientY - b.top - b.height / 2 };
+  
+  if (st.sx > 1.1 || st.sy > 1.1) {
+    // Отдалить к 1x
+    st.sx = 1;
+    st.sy = 1;
+    st.x = 0;
+    st.y = 0;
+  } else {
+    // Приблизить к 2x
+    zoomAt(p, 2);
+    return;
+  }
+  
+  document.getElementById('scaleX').value = st.sx;
+  document.getElementById('scaleY').value = st.sy;
+  document.getElementById('scaleXVal').textContent = st.sx.toFixed(1) + 'x';
   document.getElementById('scaleYVal').textContent = st.sy.toFixed(1) + 'x';
   apply();
   saveSettings();
@@ -227,11 +264,10 @@ stage.addEventListener('pointerdown', e => {
   const b = box();
   const p = { x: e.clientX - b.left - b.width / 2, y: e.clientY - b.top - b.height / 2 };
   ptrs[e.pointerId] = p;
+  
   if (count() === 1) {
     last = p;
-    tap = { t: Date.now(), x: e.clientX, y: e.clientY, moved: false, multi: false };
-  } else if (count() === 2) {
-    if (tap) tap.multi = true;
+    tap = { t: Date.now(), x: e.clientX, y: e.clientY, moved: false };
   }
 });
 
@@ -239,19 +275,22 @@ stage.addEventListener('pointermove', e => {
   if (!ptrs[e.pointerId]) return;
   const b = box();
   const p = { x: e.clientX - b.left - b.width / 2, y: e.clientY - b.top - b.height / 2 };
-  if (tap && Math.hypot(e.clientX - tap.x, e.clientY - tap.y) > 8) tap.moved = true;
+  
+  if (tap && Math.hypot(e.clientX - tap.x, e.clientY - tap.y) > 10) tap.moved = true;
   
   if (count() >= 2) {
     const ids = Object.keys(ptrs);
     const p1 = ptrs[ids[0]], p2 = ptrs[ids[1]];
     const dist = Math.hypot(p2.x - p1.x, p2.y - p1.y);
     if (!this.lastDist) this.lastDist = dist;
+    
     const factor = dist / this.lastDist;
-    if (factor > 0.5 && factor < 2) {
-      zoomAt({x: (p1.x+p2.x)/2, y: (p1.y+p2.y)/2}, factor);
+    if (factor > 0.8 && factor < 1.25) {
+      const mid = { x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 };
+      zoomAt(mid, factor);
     }
     this.lastDist = dist;
-  } else if (count() === 1 && st.sx > 0.15 && last) {
+  } else if (count() === 1 && last) {
     const dx = p.x - last.x;
     const dy = p.y - last.y;
     const now = performance.now();
@@ -269,25 +308,20 @@ stage.addEventListener('pointermove', e => {
 function endPointer(e) {
   delete ptrs[e.pointerId];
   this.lastDist = null;
-  if (count() === 0) {
-    if (tap && !tap.moved && !tap.multi && (Date.now() - tap.t < 300)) {
-      if (tap.isDouble) {
-        st.sx = 1; st.sy = 1; st.x = 0; st.y = 0;
-        document.getElementById('scaleX').value = 1;
-        document.getElementById('scaleY').value = 1;
-        document.getElementById('scaleXVal').textContent = '1.0x';
-        document.getElementById('scaleYVal').textContent = '1.0x';
-        apply();
-        saveSettings();
-      } else {
-        tap.isDouble = true;
-        setTimeout(() => { tap.isDouble = false; }, 300);
-      }
+  
+  if (count() === 0 && tap && !tap.moved) {
+    const now = Date.now();
+    if (now - lastTapTime < 300) {
+      doubleTapZoom(e);
+      lastTapTime = 0;
+    } else {
+      lastTapTime = now;
     }
     startInertia();
-    tap = null;
-    last = null;
   }
+  
+  tap = null;
+  last = null;
 }
 stage.addEventListener('pointerup', endPointer);
 stage.addEventListener('pointercancel', endPointer);
@@ -357,7 +391,7 @@ fileInput.addEventListener('change', () => {
     st.sx = 1; st.sy = 1; st.x = 0; st.y = 0;
     document.getElementById('scaleX').value = 1;
     document.getElementById('scaleY').value = 1;
-    apply();
+    setTimeout(() => apply(), 100);
     dbPut('photo', e.target.result).then(() => {
       closeSheet();
     }).catch(() => {
@@ -373,7 +407,8 @@ window.addEventListener('load', () => {
   dbGet('photo').then(saved => {
     if (saved) img.src = saved;
     else img.src = SAMPLE;
-  }).catch(() => { img.src = SAMPLE; });
+    setTimeout(() => apply(), 100);
+  }).catch(() => { img.src = SAMPLE; setTimeout(() => apply(), 100); });
 });
 
 if ('serviceWorker' in navigator) {
