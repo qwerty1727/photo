@@ -23,7 +23,9 @@
   .stage{position:absolute;inset:0;overflow:hidden;touch-action:none;
     user-select:none;-webkit-user-select:none;}
   .photo{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;
-    transform-origin:50% 50%;will-change:transform;pointer-events:none;-webkit-user-drag:none;}
+    transform-origin:50% 50%;will-change:transform;pointer-events:none;-webkit-user-drag:none;
+    transition:transform 0.3s ease-out;}
+  .photo.animating{transition:none;}
 
   .ui{position:absolute;inset:0;pointer-events:none;
     padding:max(12px,env(safe-area-inset-top)) max(16px,env(safe-area-inset-right)) 0 0;
@@ -164,13 +166,6 @@
     sxVal.textContent = st.sx.toFixed(2) + '×';
     syVal.textContent = st.sy.toFixed(2) + '×';
   }
-  function zoomAt(p, factor) {
-    var nsx = clampS(st.sx * factor), nsy = clampS(st.sy * factor);
-    var qx = (p.x - st.x) / st.sx, qy = (p.y - st.y) / st.sy;
-    st.sx = nsx; st.sy = nsy;
-    st.x = p.x - nsx * qx; st.y = p.y - nsy * qy;
-    syncScaleUI(); apply(); saveSettings();
-  }
   function resetView() { stopInertia(); st.sx = 1; st.sy = 1; st.x = 0; st.y = 0; syncScaleUI(); apply(); }
 
   function stopInertia() { if (raf) { cancelAnimationFrame(raf); raf = 0; } }
@@ -254,8 +249,8 @@
       if (e.type === 'pointerup' && tap && !tap.moved && !tap.multi && Date.now() - tap.t < 300) {
         var now = Date.now();
         if (now - lastTap.t < 320 && Math.hypot(e.clientX - lastTap.x, e.clientY - lastTap.y) < 30) {
-          if (st.sx > 1.05 || st.sy > 1.05) { resetView(); saveSettings(); }
-          else zoomAt(rel(e), 2.5);
+          if (st.sx > 1.05 || st.sy > 1.05) { animateZoom(1, 1); }
+          else { animateZoom(2.5, 2.5, rel(e)); }
           lastTap.t = 0;
         } else { lastTap = { t: now, x: e.clientX, y: e.clientY }; }
       }
@@ -312,18 +307,94 @@
       });
     });
   }
+
+  // Надёжное сохранение через localStorage + IndexedDB
   function saveSettings() {
-    dbPut('settings', { sx: st.sx, sy: st.sy, opacity: parseFloat(opEl.value) }).catch(function () {});
+    var settings = { sx: st.sx, sy: st.sy, opacity: parseFloat(opEl.value) };
+    try {
+      localStorage.setItem('photo-settings', JSON.stringify(settings));
+    } catch (e) {}
+    dbPut('settings', settings).catch(function () {});
   }
+
+  // Загрузка из localStorage (быстро) + IndexedDB (резерв)
   function loadSettings() {
-    dbGet('settings').then(function (s) {
-      if (!s) return;
-      st.sx = clampS(s.sx || 1); st.sy = clampS(s.sy || 1);
-      var op = Math.min(1, Math.max(0.1, s.opacity === undefined ? 1 : s.opacity));
-      opEl.value = op; opVal.textContent = Math.round(op * 100) + '%';
-      gear.style.opacity = op;
-      syncScaleUI(); apply();
-    }).catch(function () {});
+    var settings = null;
+    try {
+      var stored = localStorage.getItem('photo-settings');
+      if (stored) settings = JSON.parse(stored);
+    } catch (e) {}
+    
+    if (settings) {
+      applySettings(settings);
+    } else {
+      dbGet('settings').then(function (s) {
+        if (s) {
+          applySettings(s);
+          try { localStorage.setItem('photo-settings', JSON.stringify(s)); } catch (e) {}
+        }
+      }).catch(function () {});
+    }
+  }
+
+  function applySettings(s) {
+    st.sx = clampS(s.sx || 1);
+    st.sy = clampS(s.sy || 1);
+    var op = Math.min(1, Math.max(0.1, s.opacity === undefined ? 1 : s.opacity));
+    opEl.value = op;
+    opVal.textContent = Math.round(op * 100) + '%';
+    gear.style.opacity = op;
+    syncScaleUI();
+    apply();
+  }
+
+  // Плавная анимация зума
+  function animateZoom(targetSx, targetSy, point) {
+    var startSx = st.sx, startSy = st.sy;
+    var startX = st.x, startY = st.y;
+    var duration = 300;
+    var startTime = performance.now();
+    
+    img.classList.add('animating');
+    
+    function step(currentTime) {
+      var elapsed = currentTime - startTime;
+      var progress = Math.min(elapsed / duration, 1);
+      var ease = 1 - Math.pow(1 - progress, 3); // ease-out cubic
+      
+      st.sx = startSx + (targetSx - startSx) * ease;
+      st.sy = startSy + (targetSy - startSy) * ease;
+      
+      if (point) {
+        var qx = (point.x - startX) / startSx;
+        var qy = (point.y - startY) / startSy;
+        st.x = point.x - st.sx * qx;
+        st.y = point.y - st.sy * qy;
+      } else {
+        st.x = startX * (1 - ease);
+        st.y = startY * (1 - ease);
+      }
+      
+      syncScaleUI();
+      apply();
+      
+      if (progress < 1) {
+        requestAnimationFrame(step);
+      } else {
+        img.classList.remove('animating');
+        saveSettings();
+      }
+    }
+    
+    requestAnimationFrame(step);
+  }
+
+  function zoomAt(p, factor) {
+    var nsx = clampS(st.sx * factor), nsy = clampS(st.sy * factor);
+    var qx = (p.x - st.x) / st.sx, qy = (p.y - st.y) / st.sy;
+    st.sx = nsx; st.sy = nsy;
+    st.x = p.x - nsx * qx; st.y = p.y - nsy * qy;
+    syncScaleUI(); apply(); saveSettings();
   }
 
   var fadeTimer = 0;
@@ -343,14 +414,12 @@
     }, 120);
   }
   
-  // Для ширины и высоты — интерфейс исчезает
   [sxEl, syEl].forEach(function (inp) {
     inp.addEventListener('pointerdown', function () { startFade(inp.closest('.setting-row')); });
     inp.addEventListener('pointerup', endFade);
     inp.addEventListener('pointercancel', endFade);
   });
 
-  // Для прозрачности — интерфейс остаётся, шестерёнка видна
   opEl.addEventListener('pointerdown', function () {
     document.body.classList.remove('ui-fading');
     var old = sheet.querySelector('.keep');
@@ -381,7 +450,7 @@
     apply(); saveSettings();
   });
   document.getElementById('resetTransform').addEventListener('click', function () {
-    resetView(); saveSettings();
+    animateZoom(1, 1);
   });
 
   var SAMPLE_SVG =
@@ -421,46 +490,4 @@
         c.height = Math.round(im.naturalHeight * k);
         c.getContext('2d').drawImage(im, 0, 0, c.width, c.height);
         URL.revokeObjectURL(url);
-        c.toBlob(function (b) { b ? resolve(b) : reject(new Error('blob')); }, 'image/jpeg', 0.92);
-      };
-      im.onerror = function () { URL.revokeObjectURL(url); reject(new Error('decode')); };
-      im.src = url;
-    });
-  }
-
-  fileInput.addEventListener('change', function () {
-    var file = fileInput.files && fileInput.files[0];
-    if (!file) return;
-    var ready = file.size > 8 * 1024 * 1024 ? downscale(file) : Promise.resolve(file);
-    ready.then(function (blob) {
-      showBlob(blob);
-      return dbPut('photo', blob).then(
-        function () { closeSheet(); },
-        function () { note.textContent = 'Фото показано, но не сохранилось.'; }
-      );
-    }).catch(function () {
-      note.textContent = 'Не удалось открыть файл. Выбери JPG или PNG.';
-    }).then(function () {
-      try { fileInput.value = ''; } catch (e) {}
-    });
-  });
-
-  document.getElementById('reset').addEventListener('click', function () {
-    showSample();
-    dbDel('photo').catch(function () {});
-    closeSheet();
-  });
-
-  showSample();
-  loadSettings();
-  dbGet('photo').then(function (blob) { if (blob) showBlob(blob); }).catch(function () {});
-
-  if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
-    window.addEventListener('load', function () {
-      navigator.serviceWorker.register('sw.js').catch(function () {});
-    });
-  }
-})();
-</script>
-</body>
-</html>
+      
