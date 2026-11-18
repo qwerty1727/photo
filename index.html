@@ -155,6 +155,16 @@
     width: 100%;
     accent-color: var(--accent);
   }
+  .version-box {
+    background: rgba(138, 184, 255, 0.1);
+    border: 1px solid var(--accent);
+    border-radius: 8px;
+    padding: 8px 12px;
+    text-align: center;
+    font-size: 13px;
+    color: var(--accent);
+    margin-top: 4px;
+  }
 </style>
 </head>
 <body>
@@ -195,6 +205,8 @@
     <button class="btn" id="resetTransform" type="button">Сбросить размер и положение</button>
     <button class="btn" id="reset" type="button">Вернуть пример</button>
     <button class="btn primary" id="close" type="button">Готово</button>
+    
+    <div class="version-box">Версия кода: <strong>v1.0.1</strong></div>
   </div>
 </div>
 
@@ -248,15 +260,12 @@
     clampPan();
     img.style.transform = 'translate(' + st.x + 'px,' + st.y + 'px) scale(' + st.sx + ',' + st.sy + ')';
   }
-  
-  // ИСПРАВЛЕНО: теперь обновляет ползунки
   function syncScaleUI() {
     sxEl.value = st.sx;
     syEl.value = st.sy;
     sxVal.textContent = st.sx.toFixed(2) + '×';
     syVal.textContent = st.sy.toFixed(2) + '×';
   }
-  
   function zoomAt(p, factor) {
     var nsx = clampS(st.sx * factor), nsy = clampS(st.sy * factor);
     var qx = (p.x - st.x) / st.sx, qy = (p.y - st.y) / st.sy;
@@ -268,8 +277,6 @@
     apply();
     saveSettings();
   }
-  
-  // ИСПРАВЛЕНО: теперь обновляет ползунки и сохраняет
   function resetView() {
     stopInertia();
     st.sx = 1;
@@ -372,9 +379,8 @@
       if (e.type === 'pointerup' && tap && !tap.moved && !tap.multi && Date.now() - tap.t < 300) {
         var now = Date.now();
         if (now - lastTap.t < 320 && Math.hypot(e.clientX - lastTap.x, e.clientY - lastTap.y) < 30) {
-          // Двойной тап
           if (st.sx > 1.05 || st.sy > 1.05) {
-            resetView(); // Теперь правильно сбрасывает и сохраняет
+            resetView();
           } else {
             zoomAt(rel(e), 2.5);
           }
@@ -440,20 +446,15 @@
     });
   }
 
-  // ИСПРАВЛЕНО: надёжное сохранение
   function saveSettings() {
     var settings = {
       sx: st.sx,
       sy: st.sy,
       opacity: parseFloat(opEl.value)
     };
-    // Сохраняем в localStorage (мгновенно)
     try {
       localStorage.setItem('photo-settings', JSON.stringify(settings));
-    } catch (e) {
-      console.log('localStorage не доступен:', e);
-    }
-    // И в IndexedDB (резерв)
+    } catch (e) {}
     dbPut('settings', settings).catch(function () {});
   }
 
@@ -468,7 +469,6 @@
     apply();
   }
 
-  // ИСПРАВЛЕНО: загрузка из localStorage
   function loadSettings() {
     var settings = null;
     try {
@@ -476,9 +476,7 @@
       if (stored) {
         settings = JSON.parse(stored);
       }
-    } catch (e) {
-      console.log('Ошибка чтения localStorage:', e);
-    }
+    } catch (e) {}
 
     if (settings) {
       applySettings(settings);
