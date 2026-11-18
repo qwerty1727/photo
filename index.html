@@ -154,15 +154,13 @@
     width: 100%;
     accent-color: var(--accent);
   }
-  .version-box {
-    background: rgba(138, 184, 255, 0.1);
-    border: 1px solid var(--accent);
-    border-radius: 8px;
-    padding: 8px 12px;
+  .version-text {
     text-align: center;
-    font-size: 13px;
-    color: var(--accent);
-    margin-top: 4px;
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 12px;
+    margin-bottom: 4px;
+    opacity: 0.5;
   }
 </style>
 </head>
@@ -204,8 +202,8 @@
     <button class="btn" id="resetTransform" type="button">Сбросить размер и положение</button>
     <button class="btn" id="reset" type="button">Вернуть пример</button>
     <button class="btn primary" id="close" type="button">Готово</button>
-    
-    <div class="version-box">Версия кода: <strong>v1.0.4</strong></div>
+
+    <div class="version-text">v1.0.5</div>
   </div>
 </div>
 
