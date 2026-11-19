@@ -123,6 +123,7 @@
     color: var(--fg);
     cursor: pointer;
   }
+  .btn[hidden] { display: none; }
   .btn.primary {
     background: var(--accent);
     border-color: var(--accent);
@@ -287,7 +288,7 @@
     <button class="btn" id="reset" type="button">Вернуть пример</button>
     <button class="btn primary" id="close" type="button">Готово</button>
 
-    <div class="version-text">v1.2.0</div>
+    <div class="version-text">v1.2.1</div>
   </div>
 </div>
 
@@ -312,6 +313,7 @@
         <button class="btn primary" id="lkSave" type="submit">Сохранить</button>
         <button class="btn" id="lkCancel" type="button">Отмена</button>
       </div>
+      <button class="btn" id="lkDup" type="button" hidden>Дублировать эту ссылку</button>
     </form>
     <div class="lgrid" id="linksList"></div>
     <div class="lempty" id="linksEmpty">Пока нет ссылок. Нажми «Добавить».</div>
@@ -809,6 +811,7 @@
   var lkUrl = document.getElementById('lkUrl');
   var lkErr = document.getElementById('lkErr');
   var lkShow = document.getElementById('lkShow');
+  var lkDup = document.getElementById('lkDup');
   var lkEnable = document.getElementById('lkEnable');
   var lkPlace = document.getElementById('lkPlace');
   var placeBar = document.getElementById('placeBar');
@@ -1079,6 +1082,7 @@
     lkText.value = it ? it.text : '';
     lkUrl.value = it ? it.url : '';
     lkErr.textContent = '';
+    lkDup.hidden = !it;
     lkForm.hidden = false;
     lkForm.scrollIntoView({ block: 'nearest' });
     setTimeout(function () { try { (it ? lkText : lkUrl).focus(); } catch (e) {} }, 30);
@@ -1087,6 +1091,13 @@
 
   document.getElementById('lkAdd').addEventListener('click', function () { openForm(null); });
   document.getElementById('lkCancel').addEventListener('click', closeForm);
+  lkDup.addEventListener('click', function () {
+    var src = null;
+    links.items.forEach(function (x) { if (x.id === editingId) src = x; });
+    if (!src || links.items.length >= LINK_MAX) { lkErr.textContent = 'Слишком много ссылок'; return; }
+    links.items.push({ id: uid(), text: src.text, url: src.url, u: num(src.u + 0.06, -4, 4, 0), v: num(src.v + 0.06, -4, 4, 0), s: src.s });
+    saveLinks(); closeForm(); refreshLinks();
+  });
   lkForm.addEventListener('submit', function (e) {
     e.preventDefault();
     var url = normUrl(lkUrl.value);
