@@ -165,9 +165,9 @@
 
   .links-layer { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
   .link-label {
-    position: absolute;
-    pointer-events: auto;
-    transform: translate(-50%, -50%);
+    position: absolute; left: 0; top: 0;
+    pointer-events: none;
+    will-change: transform;
     max-width: 70vw;
     padding: 9px 16px;
     border-radius: 999px;
@@ -181,31 +181,34 @@
     user-select: none;
     -webkit-user-select: none;
     -webkit-touch-callout: none;
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
-    cursor: pointer;
   }
+  .link-label.ghost { opacity: 0; }
   .link-label .fill {
     position: absolute; inset: 0;
     background: rgba(138, 184, 255, 0.55);
     transform: scaleX(0); transform-origin: left center;
     pointer-events: none;
   }
-  .link-label.pressing .fill { transform: scaleX(1); transition: transform 0.5s linear; }
+  .link-label.pressing .fill { transform: scaleX(1); transition: transform 0.3s linear; }
   .link-label .t { position: relative; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   body.placing .ui { display: none; }
-  body.placing .stage { pointer-events: none; }
-  body.placing .link-label { border: 1.5px dashed var(--accent); cursor: grab; }
+  body.placing .link-label { pointer-events: auto; opacity: 1; border: 1.5px dashed var(--accent); cursor: grab; }
+  body.placing .link-label.sel { border-style: solid; background: rgba(138, 184, 255, 0.35); }
   .place-bar {
     position: absolute; left: 50%; transform: translateX(-50%);
-    bottom: max(20px, env(safe-area-inset-bottom));
-    z-index: 4; display: flex; align-items: center; gap: 12px;
-    padding: 8px 8px 8px 16px; border-radius: 999px;
-    background: rgba(23, 26, 32, 0.92); border: 1px solid var(--line);
-    font-size: 14px; white-space: nowrap;
+    bottom: max(16px, env(safe-area-inset-bottom));
+    width: calc(100% - 32px); max-width: 420px;
+    z-index: 4; display: flex; flex-direction: column; gap: 10px;
+    padding: 12px 14px; border-radius: 18px;
+    background: rgba(23, 26, 32, 0.94); border: 1px solid var(--line);
+    font-size: 14px;
   }
   .place-bar[hidden] { display: none; }
-  .place-bar .btn { min-height: 40px; padding: 0 18px; border-radius: 999px; }
+  .place-bar .btn { min-height: 44px; }
+  .pb-size { display: flex; align-items: center; gap: 10px; }
+  .pb-size[hidden] { display: none; }
+  .pb-size input { flex: 1; accent-color: var(--accent); }
+  .pb-size span { min-width: 3.2em; text-align: right; color: var(--muted); }
   .links-wrap { position: absolute; inset: 0; z-index: 6; background: var(--surface); display: flex; flex-direction: column; }
   .links-wrap[hidden] { display: none; }
   .lhead {
@@ -284,7 +287,7 @@
     <button class="btn" id="reset" type="button">Вернуть пример</button>
     <button class="btn primary" id="close" type="button">Готово</button>
 
-    <div class="version-text">v1.1.0</div>
+    <div class="version-text">v1.2.0</div>
   </div>
 </div>
 
@@ -298,8 +301,9 @@
       <button class="btn primary" id="lkAdd" type="button">Добавить</button>
       <button class="btn" id="lkPlace" type="button">Расположить</button>
     </div>
-    <label class="lchk"><input type="checkbox" id="lkShow" checked> Показывать ссылки на экране</label>
-    <div class="note" style="margin:0">Чтобы открыть ссылку, зажми её на 0,5 секунды.</div>
+    <label class="lchk"><input type="checkbox" id="lkShow" checked> Показывать ссылки (скрытые всё равно работают)</label>
+    <button class="btn" id="lkEnable" type="button">Остановить ссылки</button>
+    <div class="note" style="margin:0">Чтобы открыть ссылку, зажми её на 0,3 секунды. Ссылки привязаны к месту на фото и двигаются вместе с ним.</div>
     <form class="lform" id="lkForm" hidden autocomplete="off" novalidate>
       <input type="text" id="lkText" placeholder="Текст (например: Почта)" maxlength="40">
       <input type="url" id="lkUrl" placeholder="Адрес (например: gmail.com)" inputmode="url" autocapitalize="off" autocorrect="off" spellcheck="false">
@@ -315,8 +319,13 @@
 </div>
 
 <div class="place-bar" id="placeBar" hidden>
-  <span>Перетаскивай ссылки пальцем</span>
-  <button class="btn primary" id="placeDone" type="button">Готово</button>
+  <div id="pbHint">Перетаскивай ссылки. Нажми на ссылку, чтобы изменить размер (или щипни её двумя пальцами). Фото можно приближать.</div>
+  <div class="pb-size" id="pbSize" hidden>
+    <label for="lkSize">Размер</label>
+    <input type="range" id="lkSize" min="0.4" max="4" step="0.05" value="1">
+    <span id="lkSizeVal">1.00×</span>
+  </div>
+  <button class="btn primary" id="placeDone" type="button">Закрепить</button>
 </div>
 
 <script>
@@ -369,6 +378,7 @@
   function apply() {
     clampPan();
     img.style.transform = 'translate(' + st.x + 'px,' + st.y + 'px) scale(' + (st.z * st.sx) + ',' + (st.z * st.sy) + ')';
+    if (typeof updateLinks === 'function') updateLinks();
   }
   function syncScaleUI() {
     sxEl.value = st.sx;
@@ -786,6 +796,8 @@
 
 
   // ---------- Ссылки ----------
+  // Позиция u,v: от центра экрана в долях ширины/высоты экрана при зуме 1 и растяжении 1.
+  // Так ссылка стоит на одном и том же месте фото при зуме, сдвиге и растяжении.
   var layer = document.getElementById('linksLayer');
   var linksWrap = document.getElementById('linksWrap');
   var linksList = document.getElementById('linksList');
@@ -797,14 +809,19 @@
   var lkUrl = document.getElementById('lkUrl');
   var lkErr = document.getElementById('lkErr');
   var lkShow = document.getElementById('lkShow');
+  var lkEnable = document.getElementById('lkEnable');
   var lkPlace = document.getElementById('lkPlace');
   var placeBar = document.getElementById('placeBar');
-  var LINK_MAX = 50, HOLD_MS = 500;
-  var links = { show: true, items: [] };
-  var placing = false, editingId = null, linksTouched = false;
+  var pbSize = document.getElementById('pbSize');
+  var lkSize = document.getElementById('lkSize');
+  var lkSizeVal = document.getElementById('lkSizeVal');
+  var LINK_MAX = 50, HOLD_MS = 300;
+  var links = { show: true, enabled: true, items: [] };
+  var placing = false, editingId = null, linksTouched = false, selId = null;
+  var labelEls = [], LW = 0, LH = 0;
 
   function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
-  function clampPct(v) { v = parseFloat(v); return isNaN(v) ? 50 : Math.min(100, Math.max(0, v)); }
+  function num(v, lo, hi, d) { v = parseFloat(v); return isNaN(v) ? d : Math.min(hi, Math.max(lo, v)); }
 
   function normUrl(raw) {
     var v = String(raw || '').trim();
@@ -827,17 +844,21 @@
   }
 
   function sanitizeLinks(d) {
-    var out = { show: true, items: [] };
+    var out = { show: true, enabled: true, items: [] };
     if (!d || typeof d !== 'object') return out;
     out.show = d.show !== false;
+    out.enabled = d.enabled !== false;
     (Array.isArray(d.items) ? d.items : []).slice(0, LINK_MAX).forEach(function (it) {
       if (!it || typeof it !== 'object') return;
       var url = normUrl(it.url);
       if (!url) return;
+      var u, v;
+      if (it.u !== undefined && it.v !== undefined) { u = num(it.u, -4, 4, 0); v = num(it.v, -4, 4, 0); }
+      else { u = (num(it.x, 0, 100, 50) - 50) / 100; v = (num(it.y, 0, 100, 50) - 50) / 100; } // старый формат (v1.1)
       out.items.push({
         id: String(it.id || uid()),
         text: String(it.text || hostOf(url)).slice(0, 40),
-        url: url, x: clampPct(it.x), y: clampPct(it.y)
+        url: url, u: u, v: v, s: num(it.s, 0.4, 4, 1)
       });
     });
     return out;
@@ -870,73 +891,143 @@
     setTimeout(function () { if (a.parentNode) a.parentNode.removeChild(a); }, 0);
   }
 
-  function placeEl(el, it) {
-    var W = layer.clientWidth || window.innerWidth, H = layer.clientHeight || window.innerHeight;
-    var hx = el.offsetWidth / 2 / W * 100, hy = el.offsetHeight / 2 / H * 100;
-    var x = Math.min(100 - hx, Math.max(hx, it.x)), y = Math.min(100 - hy, Math.max(hy, it.y));
-    el.style.left = x + '%';
-    el.style.top = y + '%';
+  function measure() { LW = layer.clientWidth || window.innerWidth; LH = layer.clientHeight || window.innerHeight; }
+  function updateLinks() {
+    if (!labelEls.length) return;
+    var ex = st.z * st.sx, ey = st.z * st.sy;
+    for (var i = 0; i < labelEls.length; i++) {
+      var el = labelEls[i], it = el._it;
+      var px = LW / 2 + st.x + it.u * LW * ex;
+      var py = LH / 2 + st.y + it.v * LH * ey;
+      el.style.transform = 'translate(' + px.toFixed(2) + 'px,' + py.toFixed(2) + 'px) translate(-50%,-50%) scale(' + (it.s * st.z).toFixed(3) + ')';
+    }
+  }
+  // экранные координаты -> u,v
+  function toUV(cx, cy) {
+    var b = box();
+    return {
+      u: (cx - b.left - LW / 2 - st.x) / (LW * st.z * st.sx),
+      v: (cy - b.top - LH / 2 - st.y) / (LH * st.z * st.sy)
+    };
   }
 
   function bindLabel(el, it) {
-    var timer = 0, sx = 0, sy = 0, drag = null;
-    function cancelPress() { clearTimeout(timer); timer = 0; el.classList.remove('pressing'); }
+    var pts = {}, drag = null, pinch = null, moved = false;
+    function cnt() { return Object.keys(pts).length; }
     el.addEventListener('contextmenu', function (e) { e.preventDefault(); });
     el.addEventListener('pointerdown', function (e) {
-      if (e.button !== undefined && e.button > 0) return;
-      sx = e.clientX; sy = e.clientY;
+      if (!placing) return;
       try { el.setPointerCapture(e.pointerId); } catch (er) {}
-      if (placing) {
-        var W = layer.clientWidth, H = layer.clientHeight;
-        drag = { x0: it.x, y0: it.y, W: W, H: H, id: e.pointerId };
-        var r = el.getBoundingClientRect();
-        drag.cx = (r.left + r.width / 2) / W * 100;
-        drag.cy = (r.top + r.height / 2) / H * 100;
-        return;
+      pts[e.pointerId] = { x: e.clientX, y: e.clientY };
+      selectLink(it.id);
+      if (cnt() === 2) {
+        var k = Object.keys(pts);
+        pinch = { d0: Math.hypot(pts[k[0]].x - pts[k[1]].x, pts[k[0]].y - pts[k[1]].y) || 1, s0: it.s };
+        drag = null;
+      } else if (cnt() === 1) {
+        var q = toUV(e.clientX, e.clientY);
+        drag = { du: it.u - q.u, dv: it.v - q.v };
       }
-      el.classList.add('pressing');
-      timer = setTimeout(function () {
-        timer = 0;
-        el.classList.remove('pressing');
-        openLink(it.url);
-      }, HOLD_MS);
     });
     el.addEventListener('pointermove', function (e) {
-      if (placing && drag) {
-        it.x = clampPct(drag.cx + (e.clientX - sx) / drag.W * 100);
-        it.y = clampPct(drag.cy + (e.clientY - sy) / drag.H * 100);
-        placeEl(el, it);
-        return;
+      if (!placing || !pts[e.pointerId]) return;
+      pts[e.pointerId] = { x: e.clientX, y: e.clientY };
+      if (pinch && cnt() >= 2) {
+        var k = Object.keys(pts);
+        var d = Math.hypot(pts[k[0]].x - pts[k[1]].x, pts[k[0]].y - pts[k[1]].y);
+        it.s = num(pinch.s0 * d / pinch.d0, 0.4, 4, 1);
+        moved = true; syncSize(); updateLinks();
+      } else if (drag) {
+        var q = toUV(e.clientX, e.clientY);
+        it.u = num(q.u + drag.du, -4, 4, it.u);
+        it.v = num(q.v + drag.dv, -4, 4, it.v);
+        moved = true; updateLinks();
       }
-      if (timer && Math.hypot(e.clientX - sx, e.clientY - sy) > 10) cancelPress();
     });
-    function up() {
-      if (drag) { drag = null; saveLinks(); return; }
-      cancelPress();
+    function up(e) {
+      if (!pts[e.pointerId]) return;
+      delete pts[e.pointerId];
+      pinch = null; drag = null;
+      var k = Object.keys(pts);
+      if (k.length === 1) { var q = toUV(pts[k[0]].x, pts[k[0]].y); drag = { du: it.u - q.u, dv: it.v - q.v }; }
+      if (!k.length && moved) { moved = false; saveLinks(); }
     }
     el.addEventListener('pointerup', up);
     el.addEventListener('pointercancel', up);
-    el.addEventListener('keydown', function (e) {
-      if (e.key === 'Enter' && !placing) openLink(it.url);
-    });
   }
 
   function renderLabels() {
     layer.textContent = '';
-    if (!links.show && !placing) return;
+    labelEls = [];
+    measure();
+    if (!links.enabled) return;
     links.items.forEach(function (it) {
       var el = document.createElement('div');
-      el.className = 'link-label';
-      el.setAttribute('role', 'button');
-      el.tabIndex = 0;
+      el.className = 'link-label' + (links.show ? '' : ' ghost') + (placing && it.id === selId ? ' sel' : '');
       var f = document.createElement('span'); f.className = 'fill';
       var t = document.createElement('span'); t.className = 't'; t.textContent = it.text;
       el.appendChild(f); el.appendChild(t);
+      el._it = it;
       layer.appendChild(el);
-      placeEl(el, it);
+      labelEls.push(el);
       bindLabel(el, it);
     });
+    updateLinks();
   }
+
+  function selectLink(id) {
+    selId = id;
+    labelEls.forEach(function (el) { el.classList.toggle('sel', el._it.id === id); });
+    syncSize();
+  }
+  function syncSize() {
+    var it = null;
+    links.items.forEach(function (x) { if (x.id === selId) it = x; });
+    pbSize.hidden = !(placing && it);
+    if (it) { lkSize.value = it.s; lkSizeVal.textContent = it.s.toFixed(2) + '×'; }
+  }
+  lkSize.addEventListener('input', function () {
+    links.items.forEach(function (x) { if (x.id === selId) x.s = num(lkSize.value, 0.4, 4, 1); });
+    syncSize(); updateLinks();
+  });
+  lkSize.addEventListener('change', saveLinks);
+
+  // Долгое нажатие по ссылке (видимой или скрытой): ловим на сцене, чтобы жесты фото работали везде
+  var press = null;
+  function cancelPress() {
+    if (!press) return;
+    clearTimeout(press.t);
+    press.el.classList.remove('pressing');
+    press = null;
+  }
+  function hitLabel(x, y) {
+    for (var i = labelEls.length - 1; i >= 0; i--) {
+      var r = labelEls[i].getBoundingClientRect();
+      if (r.width && x >= r.left - 8 && x <= r.right + 8 && y >= r.top - 8 && y <= r.bottom + 8) return labelEls[i];
+    }
+    return null;
+  }
+  stage.addEventListener('pointerdown', function (e) {
+    if (press) { cancelPress(); return; }
+    if (placing || !links.enabled || !labelEls.length || e.isPrimary === false) return;
+    var hit = hitLabel(e.clientX, e.clientY);
+    if (!hit) return;
+    var p = { el: hit, id: e.pointerId, x: e.clientX, y: e.clientY };
+    hit.classList.add('pressing');
+    p.t = setTimeout(function () {
+      var it = hit._it;
+      press = null;
+      hit.classList.remove('pressing');
+      openLink(it.url);
+    }, HOLD_MS);
+    press = p;
+  });
+  stage.addEventListener('pointermove', function (e) {
+    if (press && e.pointerId === press.id && Math.hypot(e.clientX - press.x, e.clientY - press.y) > 10) cancelPress();
+  });
+  stage.addEventListener('pointerup', cancelPress);
+  stage.addEventListener('pointercancel', cancelPress);
+  stage.addEventListener('contextmenu', function (e) { e.preventDefault(); });
 
   var armedTimer = 0;
   function renderList() {
@@ -974,10 +1065,12 @@
     });
     linksEmpty.hidden = links.items.length > 0;
     linksTitle.textContent = 'Ссылки (' + links.items.length + ')';
-    openLinksBtn.textContent = links.items.length ? 'Ссылки (' + links.items.length + ')' : 'Ссылки';
+    openLinksBtn.textContent = (links.items.length ? 'Ссылки (' + links.items.length + ')' : 'Ссылки') + (links.enabled ? '' : ' — остановлены');
     lkShow.checked = links.show;
-    lkPlace.disabled = !links.items.length;
-    lkPlace.style.opacity = links.items.length ? '' : '0.45';
+    lkEnable.textContent = links.enabled ? 'Остановить ссылки' : 'Включить ссылки';
+    var canPlace = links.items.length && links.enabled;
+    lkPlace.disabled = !canPlace;
+    lkPlace.style.opacity = canPlace ? '' : '0.45';
   }
   function refreshLinks() { renderLabels(); renderList(); }
 
@@ -992,10 +1085,7 @@
   }
   function closeForm() { lkForm.hidden = true; editingId = null; lkErr.textContent = ''; }
 
-  document.getElementById('lkAdd').addEventListener('click', function () {
-    if (links.items.length >= LINK_MAX) { lkErr.textContent = ''; return; }
-    openForm(null);
-  });
+  document.getElementById('lkAdd').addEventListener('click', function () { openForm(null); });
   document.getElementById('lkCancel').addEventListener('click', closeForm);
   lkForm.addEventListener('submit', function (e) {
     e.preventDefault();
@@ -1007,11 +1097,15 @@
     } else {
       if (links.items.length >= LINK_MAX) { lkErr.textContent = 'Слишком много ссылок'; return; }
       var n = links.items.length;
-      links.items.push({ id: uid(), text: text, url: url, x: 50, y: Math.min(90, 15 + (n % 10) * 8) });
+      links.items.push({ id: uid(), text: text, url: url, u: 0, v: -0.35 + (n % 10) * 0.08, s: 1 });
     }
     saveLinks(); closeForm(); refreshLinks();
   });
   lkShow.addEventListener('change', function () { links.show = lkShow.checked; saveLinks(); renderLabels(); });
+  lkEnable.addEventListener('click', function () {
+    links.enabled = !links.enabled;
+    saveLinks(); cancelPress(); refreshLinks();
+  });
 
   function openLinksScreen() { closeForm(); linksWrap.hidden = false; refreshLinks(); }
   function closeLinksScreen() { closeForm(); linksWrap.hidden = true; }
@@ -1019,18 +1113,23 @@
   document.getElementById('linksBack').addEventListener('click', closeLinksScreen);
 
   function startPlacing() {
-    if (!links.items.length) return;
+    if (!links.items.length || !links.enabled) return;
     closeLinksScreen();
     closeSheet();
+    cancelPress();
     placing = true;
+    selId = null;
     document.body.classList.add('placing');
     placeBar.hidden = false;
     renderLabels();
+    syncSize();
   }
   function stopPlacing() {
     placing = false;
+    selId = null;
     document.body.classList.remove('placing');
     placeBar.hidden = true;
+    saveLinks();
     renderLabels();
   }
   lkPlace.addEventListener('click', startPlacing);
