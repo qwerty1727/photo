@@ -1,10 +1,9 @@
-// Когда меняешь файлы приложения, увеличь номер версии (v8 -> v9),
+// Когда меняешь файлы приложения, увеличь номер версии (v1 -> v2),
 // чтобы телефон подхватил обновление.
-var CACHE = 'photo-app-v8';
+var CACHE = 'photo-app-v9';
 var ASSETS = [
   './',
   'index.html',
-  'app.js',
   'manifest.webmanifest',
   'icon-192.png',
   'icon-512.png',
