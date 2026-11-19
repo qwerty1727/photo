@@ -17,145 +17,56 @@
   }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   html, body { margin: 0; height: 100%; background: var(--bg); overflow: hidden; }
-  body {
-    position: relative; color: var(--fg);
-    font-family: system-ui, -apple-system, sans-serif;
-    overscroll-behavior: none;
-  }
-  .stage {
-    position: absolute; inset: 0; overflow: hidden;
-    touch-action: none; user-select: none; -webkit-user-select: none;
-  }
-  .photo {
-    position: absolute; inset: 0; width: 100%; height: 100%;
-    object-fit: contain; transform-origin: 50% 50%;
-    pointer-events: none; -webkit-user-drag: none;
-  }
-  .ui {
-    position: absolute; inset: 0; pointer-events: none;
-    padding: max(12px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) 0 0;
-    display: flex; justify-content: flex-end;
-  }
-  .gear {
-    pointer-events: auto; width: 46px; height: 46px; border-radius: 50%;
-    border: 1px solid rgba(255,255,255,0.18); background: rgba(12,14,17,0.55);
-    backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
-    color: var(--fg); display: grid; place-items: center; cursor: pointer;
-    transition: opacity 0.4s ease, background 0.2s;
-  }
+  body { position: relative; color: var(--fg); font-family: system-ui, -apple-system, sans-serif; overscroll-behavior: none; }
+  .stage { position: absolute; inset: 0; overflow: hidden; touch-action: none; user-select: none; -webkit-user-select: none; }
+  .photo { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; transform-origin: 50% 50%; pointer-events: none; -webkit-user-drag: none; }
+  .ui { position: absolute; inset: 0; pointer-events: none; padding: max(12px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) 0 0; display: flex; justify-content: flex-end; }
+  .gear { pointer-events: auto; width: 46px; height: 46px; border-radius: 50%; border: 1px solid rgba(255,255,255,0.18); background: rgba(12,14,17,0.55); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); color: var(--fg); display: grid; place-items: center; cursor: pointer; transition: opacity 0.3s ease, background 0.2s; z-index: 20; }
   .gear:active { background: rgba(255,255,255,0.15); }
   .gear svg { width: 22px; height: 22px; }
-  .sheet-wrap {
-    position: absolute; inset: 0; display: flex; align-items: flex-end;
-    background: var(--scrim); z-index: 10; transition: background-color 0.3s ease;
-  }
+
+  .sheet-wrap { position: absolute; inset: 0; display: flex; align-items: flex-end; background: var(--scrim); z-index: 10; transition: opacity 0.3s ease, visibility 0.3s ease; }
   .sheet-wrap[hidden] { display: none; }
-  .sheet {
-    width: 100%; max-height: 85vh; overflow-y: auto;
-    background: var(--surface); border-top: 1px solid var(--line);
-    border-radius: 18px 18px 0 0; padding: 20px 16px max(16px, env(safe-area-inset-bottom));
-    display: flex; flex-direction: column; gap: 10px;
-  }
+  .sheet-wrap.fading { opacity: 0; visibility: hidden; pointer-events: none; }
+  .sheet { width: 100%; max-height: 85vh; overflow-y: auto; background: var(--surface); border-top: 1px solid var(--line); border-radius: 18px 18px 0 0; padding: 20px 16px max(16px, env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 10px; }
   .sheet h1 { margin: 0 0 4px; font-size: 18px; font-weight: 600; }
   .note { margin: 0 0 6px; font-size: 14px; color: var(--muted); }
-  .btn {
-    display: flex; align-items: center; justify-content: center;
-    font: inherit; font-size: 16px; font-weight: 500; min-height: 48px;
-    border-radius: 12px; border: 1px solid var(--line);
-    background: transparent; color: var(--fg); cursor: pointer; width: 100%;
-  }
+  .btn { display: flex; align-items: center; justify-content: center; font: inherit; font-size: 16px; font-weight: 500; min-height: 48px; border-radius: 12px; border: 1px solid var(--line); background: transparent; color: var(--fg); cursor: pointer; width: 100%; }
   .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
   .btn.danger { border-color: var(--danger); color: var(--danger); }
   .file-hidden { position: absolute; width: 1px; height: 1px; opacity: 0; overflow: hidden; pointer-events: none; }
   .setting-row { display: flex; flex-direction: column; gap: 6px; padding: 4px 2px; }
   .setting-row label { font-size: 14px; color: #ccc; display: flex; justify-content: space-between; }
   .setting-row input[type=range] { width: 100%; accent-color: var(--accent); }
-  .custom-link {
-    position: absolute;
-    padding: 8px 16px;
-    background: rgba(12, 14, 17, 0.8);
-    border: 1px solid var(--accent);
-    border-radius: 20px;
-    color: var(--accent);
-    font-size: 14px;
-    font-weight: 500;
-    backdrop-filter: blur(4px);
-    cursor: pointer;
-    user-select: none;
-    text-decoration: none;
-    display: inline-block;
-    transition: background 0.2s, border-color 0.2s, opacity 0.2s;
-    z-index: 5;
-    white-space: nowrap;
-    transform-origin: 50% 50%;
-  }
-  .custom-link.edit-mode {
-    border-style: dashed;
-    background: rgba(138, 184, 255, 0.15);
-    cursor: grab;
-  }
+
+  .custom-link { position: absolute; padding: 8px 16px; background: rgba(12, 14, 17, 0.8); border: 1px solid var(--accent); border-radius: 20px; color: var(--accent); font-size: 14px; font-weight: 500; backdrop-filter: blur(4px); cursor: pointer; user-select: none; text-decoration: none; display: inline-block; transition: background 0.2s, border-color 0.2s, opacity 0.2s; z-index: 5; white-space: nowrap; transform-origin: 50% 50%; }
+  .custom-link.edit-mode { border-style: dashed; background: rgba(138, 184, 255, 0.15); cursor: grab; }
   .custom-link.link-disabled { opacity: 0.35; }
   .custom-link.charging { animation: linkcharge 0.5s linear forwards; }
   .custom-link.armed { background: var(--accent); color: var(--accent-ink); }
-  @keyframes linkcharge {
-    from { background: rgba(12, 14, 17, 0.8); color: var(--accent); }
-    to { background: var(--accent); color: var(--accent-ink); }
-  }
-  .link-list {
-    display: flex; flex-direction: column; gap: 8px;
-    max-height: 40vh; overflow-y: auto; margin: 8px 0;
-    padding-right: 4px;
-  }
-  .link-item {
-    display: flex; align-items: center; gap: 8px;
-    background: rgba(255,255,255,0.03); border: 1px solid var(--line);
-    border-radius: 10px; padding: 10px;
-  }
-  .link-info { flex: 1; overflow: hidden; }
-  .link-text { font-size: 15px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .link-url { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .link-actions { display: flex; gap: 6px; }
-  .link-btn {
-    width: 36px; height: 36px; border-radius: 8px; border: 1px solid var(--line);
-    background: transparent; color: var(--fg); display: grid; place-items: center; cursor: pointer;
-    font-size: 16px;
-  }
-  .link-btn.delete { border-color: var(--danger); color: var(--danger); }
-  .toggle-row {
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 12px 0; border-bottom: 1px solid var(--line); margin-bottom: 8px;
-  }
-  .toggle-switch {
-    width: 44px; height: 24px; background: var(--line); border-radius: 12px;
-    position: relative; cursor: pointer; transition: background 0.3s; flex-shrink: 0;
-  }
+  @keyframes linkcharge { from { background: rgba(12, 14, 17, 0.8); color: var(--accent); } to { background: var(--accent); color: var(--accent-ink); } }
+
+  /* Маленькая панель режима расстановки (поверх фото) */
+  .place-bar { position: absolute; left: 12px; right: 12px; bottom: max(14px, env(safe-area-inset-bottom)); z-index: 15; display: flex; flex-direction: column; gap: 8px; background: rgba(23,26,32,0.82); border: 1px solid var(--line); border-radius: 14px; padding: 10px 12px; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); transition: opacity 0.3s ease, transform 0.3s ease; }
+  .place-bar[hidden] { display: none; }
+  .place-bar .row { display: flex; align-items: center; gap: 8px; }
+  .place-bar .hint { font-size: 12px; color: var(--muted); }
+  .mini-btn { flex: 1; min-height: 40px; border-radius: 10px; border: 1px solid var(--line); background: transparent; color: var(--fg); font: inherit; font-size: 14px; cursor: pointer; }
+  .mini-btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
+
+  .toggle-switch { width: 44px; height: 24px; background: var(--line); border-radius: 12px; position: relative; cursor: pointer; transition: background 0.3s; flex-shrink: 0; }
   .toggle-switch.active { background: var(--accent); }
-  .toggle-switch::after {
-    content: ''; position: absolute; top: 2px; left: 2px;
-    width: 20px; height: 20px; background: white; border-radius: 50%;
-    transition: transform 0.3s;
-  }
+  .toggle-switch::after { content: ''; position: absolute; top: 2px; left: 2px; width: 20px; height: 20px; background: white; border-radius: 50%; transition: transform 0.3s; }
   .toggle-switch.active::after { transform: translateX(20px); }
-  .version-box {
-    background: rgba(138, 184, 255, 0.1); border: 1px solid var(--accent);
-    border-radius: 8px; padding: 8px 12px; text-align: center;
-    font-size: 13px; color: var(--accent); margin-top: 8px;
-  }
-  .modal-overlay {
-    position: fixed; inset: 0; background: var(--scrim);
-    display: flex; align-items: center; justify-content: center;
-    z-index: 100; padding: 20px;
-  }
-  .modal {
-    background: var(--surface); border: 1px solid var(--line);
-    border-radius: 16px; padding: 20px; width: 100%; max-width: 400px;
-    display: flex; flex-direction: column; gap: 12px;
-  }
+  .toggle-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 2px; }
+  .toggle-row span { font-size: 14px; color: #ccc; }
+
+  .version-tiny { text-align: center; font-size: 10px; color: var(--muted); opacity: 0.6; margin-top: 6px; }
+
+  .modal-overlay { position: fixed; inset: 0; background: var(--scrim); display: flex; align-items: center; justify-content: center; z-index: 100; padding: 20px; }
+  .modal { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 20px; width: 100%; max-width: 400px; display: flex; flex-direction: column; gap: 12px; }
   .modal h2 { margin: 0; font-size: 18px; }
-  .modal input {
-    width: 100%; padding: 12px; border-radius: 8px; border: 1px solid var(--line);
-    background: var(--bg); color: var(--fg); font-size: 15px; font-family: inherit;
-  }
+  .modal input { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg); color: var(--fg); font-size: 15px; font-family: inherit; }
   .modal input:focus { outline: none; border-color: var(--accent); }
   .modal-buttons { display: flex; gap: 8px; }
   .modal-buttons .btn { flex: 1; }
@@ -182,11 +93,11 @@
     <label class="btn primary" for="file">Выбрать новое фото</label>
 
     <div class="toggle-row">
-      <span style="font-size:15px; font-weight:500;">Показывать ссылки</span>
+      <span>Показывать ссылки</span>
       <div class="toggle-switch active" id="linksVisibleToggle"></div>
     </div>
 
-    <button class="btn" id="openLinkSettings" type="button">🔗 Настройки ссылок</button>
+    <button class="btn" id="openPlaceMode" type="button">🔗 Расставить ссылки</button>
 
     <div class="setting-row">
       <label>Прозрачность кнопки <span id="opacityVal">100%</span></label>
@@ -204,25 +115,19 @@
     <button class="btn" id="resetTransform" type="button">Сбросить размер и положение</button>
     <button class="btn" id="reset" type="button">Вернуть пример</button>
     <button class="btn primary" id="close" type="button">Готово</button>
-    <div class="version-box">Версия кода: <strong>v1.0.9</strong></div>
+    <div class="version-tiny">v1.1.0</div>
   </div>
 </div>
 
-<div class="sheet-wrap" id="linkManagerWrap" hidden>
-  <div class="sheet" id="linkSheet">
-    <h1>Управление ссылками</h1>
-    <p class="note">Удерживай ссылку 0.5 сек, чтобы открыть. 👁 — показать/скрыть одну ссылку.</p>
-
-    <div class="toggle-row">
-      <span style="font-size:15px; font-weight:500;">Режим перемещения</span>
-      <div class="toggle-switch" id="editModeToggle"></div>
-    </div>
-
-    <button class="btn primary" id="addLinkBtn" type="button">➕ Добавить ссылку</button>
-
-    <div class="link-list" id="linkList"></div>
-
-    <button class="btn" id="closeLinkManager" type="button">Назад</button>
+<!-- Панель режима расстановки (поверх фото, меню скрыто) -->
+<div class="place-bar" id="placeBar" hidden>
+  <div class="hint">Двигай ссылки пальцем. Удерживай 0.5 сек — открыть. Шестерёнка (↑) — выйти и сохранить.</div>
+  <div class="row">
+    <button class="mini-btn primary" id="addLinkBtn" type="button">➕ Добавить</button>
+  </div>
+  <div class="row">
+    <span style="font-size:13px;color:#ccc;">Показывать ссылки</span>
+    <div class="toggle-switch active" id="linksVisibleToggle2"></div>
   </div>
 </div>
 
