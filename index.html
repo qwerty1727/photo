@@ -289,7 +289,7 @@
     <button class="btn" id="reset" type="button">Вернуть пример</button>
     <button class="btn primary" id="close" type="button">Готово</button>
 
-    <div class="version-text">v1.3.0</div>
+    <div class="version-text">v1.3.1</div>
   </div>
 </div>
 
@@ -884,12 +884,22 @@
     }).catch(function () {});
   }
 
+  // На Android открываем как intent://: система сама выберет браузер по умолчанию (или приложение),
+  // если не вышло, откроется обычный адрес.
+  function toIntent(url) {
+    if (!/Android/i.test(navigator.userAgent || '')) return null;
+    try {
+      var u = new URL(url);
+      if (u.protocol !== 'http:' && u.protocol !== 'https:') return null;
+      return 'intent://' + u.host + u.pathname + u.search + '#Intent;scheme=' + u.protocol.slice(0, -1) +
+        ';S.browser_fallback_url=' + encodeURIComponent(url) + ';end';
+    } catch (e) { return null; }
+  }
   function openLink(url) {
     url = normUrl(url);
     if (!url) return;
-    try { if (navigator.vibrate) navigator.vibrate(30); } catch (e) {}
     var a = document.createElement('a');
-    a.href = url; a.target = '_blank'; a.rel = 'noopener noreferrer';
+    a.href = toIntent(url) || url; a.target = '_blank'; a.rel = 'noopener noreferrer';
     a.style.display = 'none';
     document.body.appendChild(a);
     a.click();
@@ -1020,17 +1030,25 @@
     var p = { el: hit, id: e.pointerId, x: e.clientX, y: e.clientY };
     hit.classList.add('pressing');
     p.t = setTimeout(function () {
-      var it = hit._it;
-      press = null;
-      hit.classList.remove('pressing');
-      openLink(it.url);
+      p.ready = true;
+      try { if (navigator.vibrate) navigator.vibrate(30); } catch (e) {}
     }, HOLD_MS);
     press = p;
   });
   stage.addEventListener('pointermove', function (e) {
     if (press && e.pointerId === press.id && Math.hypot(e.clientX - press.x, e.clientY - press.y) > 10) cancelPress();
   });
-  stage.addEventListener('pointerup', cancelPress);
+  stage.addEventListener('pointerup', function (e) {
+    var p = press;
+    if (p && p.ready && e.pointerId === p.id) {
+      press = null;
+      clearTimeout(p.t);
+      p.el.classList.remove('pressing');
+      openLink(p.el._it.url);
+      return;
+    }
+    cancelPress();
+  });
   stage.addEventListener('pointercancel', cancelPress);
   stage.addEventListener('contextmenu', function (e) { e.preventDefault(); });
 
