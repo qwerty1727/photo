@@ -292,7 +292,7 @@
     <button class="btn" id="reset" type="button">Вернуть пример</button>
     <button class="btn primary" id="close" type="button">Готово</button>
 
-    <div class="version-text">v1.4.1</div>
+    <div class="version-text">v1.4.2</div>
   </div>
 </div>
 
@@ -315,6 +315,7 @@
         <option value="appscheme">2. android-app + пакет браузера</option>
         <option value="nopkg">3. Intent без пакета (как v1.3.1)</option>
         <option value="plain">4. Обычная ссылка (как раньше)</option>
+        <option value="http">5. Intent через http, в браузер по умолчанию</option>
       </select>
     </label>
     <label class="lchk" style="flex-direction:column;align-items:stretch;gap:4px">Браузер для ссылок (пакет Android, пусто = по умолчанию)
@@ -868,7 +869,7 @@
     out.show = d.show !== false;
     out.enabled = d.enabled !== false;
     if (typeof d.pkg === 'string') out.pkg = d.pkg.trim().slice(0, 100);
-    if (['intent', 'appscheme', 'nopkg', 'plain'].indexOf(d.mode) >= 0) out.mode = d.mode;
+    if (['intent', 'appscheme', 'nopkg', 'plain', 'http'].indexOf(d.mode) >= 0) out.mode = d.mode;
     (Array.isArray(d.items) ? d.items : []).slice(0, LINK_MAX).forEach(function (it) {
       if (!it || typeof it !== 'object') return;
       var url = String(it.url || '').trim();
@@ -910,7 +911,7 @@
       var u = new URL(url);
       if (u.protocol !== 'http:' && u.protocol !== 'https:') return null;
       var good = /^[a-zA-Z]\w*(\.\w+)+$/.test(links.pkg || '');
-      var sch = u.protocol.slice(0, -1);
+      var sch = links.mode === 'http' ? 'http' : u.protocol.slice(0, -1);
       if (links.mode === 'appscheme') {
         if (!good) return null;
         return 'android-app://' + links.pkg + '/' + sch + '/' + u.host + u.pathname + u.search;
