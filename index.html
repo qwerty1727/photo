@@ -171,7 +171,8 @@
     will-change: transform;
     max-width: 70vw;
     padding: 9px 16px;
-    border-radius: 999px;
+    border-radius: 0;
+    display: flex; align-items: center; justify-content: center;
     background: rgba(12, 14, 17, 0.62);
     border: 1px solid rgba(255, 255, 255, 0.22);
     color: #fff;
@@ -191,7 +192,7 @@
     pointer-events: none;
   }
   .link-label.pressing .fill { transform: scaleX(1); transition: transform 0.3s linear; }
-  .link-label .t { position: relative; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .link-label .t { position: relative; display: block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   body.placing .ui { display: none; }
   body.placing .link-label { pointer-events: auto; opacity: 1; border: 1.5px dashed var(--accent); cursor: grab; }
   body.placing .link-label.sel { border-style: solid; background: rgba(138, 184, 255, 0.35); }
@@ -206,8 +207,10 @@
   }
   .place-bar[hidden] { display: none; }
   .place-bar .btn { min-height: 44px; }
+  #pbSize { display: flex; flex-direction: column; gap: 6px; }
+  #pbSize[hidden] { display: none; }
+  .pb-size label { min-width: 5.5em; }
   .pb-size { display: flex; align-items: center; gap: 10px; }
-  .pb-size[hidden] { display: none; }
   .pb-size input { flex: 1; accent-color: var(--accent); }
   .pb-size span { min-width: 3.2em; text-align: right; color: var(--muted); }
   .links-wrap { position: absolute; inset: 0; z-index: 6; background: var(--surface); display: flex; flex-direction: column; }
@@ -289,7 +292,7 @@
     <button class="btn" id="reset" type="button">Вернуть пример</button>
     <button class="btn primary" id="close" type="button">Готово</button>
 
-    <div class="version-text">v1.3.1</div>
+    <div class="version-text">v1.4.0</div>
   </div>
 </div>
 
@@ -306,6 +309,9 @@
     <label class="lchk"><input type="checkbox" id="lkShow" checked> Показывать ссылки (скрытые всё равно работают)</label>
     <button class="btn" id="lkEnable" type="button">Остановить ссылки</button>
     <button class="btn" id="lkStrip" type="button">Убрать https:// у всех ссылок</button>
+    <label class="lchk" style="flex-direction:column;align-items:stretch;gap:4px">Браузер для ссылок (пакет Android, пусто = по умолчанию)
+      <input type="text" id="lkPkg" autocapitalize="off" autocorrect="off" spellcheck="false" style="font:inherit;font-size:15px;color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:10px;width:100%">
+    </label>
     <div class="note" style="margin:0">Чтобы открыть ссылку, зажми её на 0,3 секунды. Ссылки привязаны к месту на фото и двигаются вместе с ним.</div>
     <form class="lform" id="lkForm" hidden autocomplete="off" novalidate>
       <input type="text" id="lkText" placeholder="Текст (например: Почта)" maxlength="40">
@@ -322,11 +328,11 @@
 </div>
 
 <div class="place-bar" id="placeBar" hidden>
-  <div id="pbHint">Перетаскивай ссылки. Нажми на ссылку, чтобы изменить размер (или щипни её двумя пальцами). Фото можно приближать.</div>
-  <div class="pb-size" id="pbSize" hidden>
-    <label for="lkSize">Размер</label>
-    <input type="range" id="lkSize" min="0.4" max="4" step="0.05" value="1">
-    <span id="lkSizeVal">1.00×</span>
+  <div id="pbHint">Перетаскивай ссылки. Нажми на ссылку, чтобы менять ширину, высоту и скругление (или щипни её двумя пальцами). Фото можно приближать.</div>
+  <div id="pbSize" hidden>
+    <div class="pb-size"><label for="lkSize">Ширина</label><input type="range" id="lkSize" min="0.4" max="4" step="0.05" value="1"><span id="lkSizeVal">1.00×</span></div>
+    <div class="pb-size"><label for="lkH">Высота</label><input type="range" id="lkH" min="0.4" max="4" step="0.05" value="1"><span id="lkHVal">1.00×</span></div>
+    <div class="pb-size"><label for="lkR">Скругление</label><input type="range" id="lkR" min="0" max="1" step="0.05" value="0"><span id="lkRVal">0%</span></div>
   </div>
   <button class="btn primary" id="placeDone" type="button">Закрепить</button>
 </div>
@@ -812,6 +818,7 @@
   var lkUrl = document.getElementById('lkUrl');
   var lkErr = document.getElementById('lkErr');
   var lkShow = document.getElementById('lkShow');
+  var lkPkg = document.getElementById('lkPkg');
   var lkEnable = document.getElementById('lkEnable');
   var lkPlace = document.getElementById('lkPlace');
   var placeBar = document.getElementById('placeBar');
@@ -819,7 +826,7 @@
   var lkSize = document.getElementById('lkSize');
   var lkSizeVal = document.getElementById('lkSizeVal');
   var LINK_MAX = 50, HOLD_MS = 300;
-  var links = { show: true, enabled: true, items: [] };
+  var links = { show: true, enabled: true, pkg: 'org.cromite.cromite', items: [] };
   var placing = false, editingId = null, linksTouched = false, selId = null;
   var labelEls = [], LW = 0, LH = 0;
 
@@ -847,10 +854,11 @@
   }
 
   function sanitizeLinks(d) {
-    var out = { show: true, enabled: true, items: [] };
+    var out = { show: true, enabled: true, pkg: 'org.cromite.cromite', items: [] };
     if (!d || typeof d !== 'object') return out;
     out.show = d.show !== false;
     out.enabled = d.enabled !== false;
+    if (typeof d.pkg === 'string') out.pkg = d.pkg.trim().slice(0, 100);
     (Array.isArray(d.items) ? d.items : []).slice(0, LINK_MAX).forEach(function (it) {
       if (!it || typeof it !== 'object') return;
       var url = String(it.url || '').trim();
@@ -861,7 +869,7 @@
       out.items.push({
         id: String(it.id || uid()),
         text: String(it.text || hostOf(url)).slice(0, 40),
-        url: url, u: u, v: v, s: num(it.s, 0.4, 4, 1)
+        url: url, u: u, v: v, s: num(it.s, 0.4, 4, 1), hs: num(it.hs === undefined ? it.s : it.hs, 0.4, 4, 1), r: num(it.r, 0, 1, 0)
       });
     });
     return out;
@@ -884,14 +892,15 @@
     }).catch(function () {});
   }
 
-  // На Android открываем как intent://: система сама выберет браузер по умолчанию (или приложение),
-  // если не вышло, откроется обычный адрес.
+  // На Android открываем как intent:// сразу в нужном браузере (по умолчанию Cromite).
+  // Если такого браузера нет, откроется обычный адрес.
   function toIntent(url) {
     if (!/Android/i.test(navigator.userAgent || '')) return null;
     try {
       var u = new URL(url);
       if (u.protocol !== 'http:' && u.protocol !== 'https:') return null;
-      return 'intent://' + u.host + u.pathname + u.search + '#Intent;scheme=' + u.protocol.slice(0, -1) +
+      var pkg = /^[a-zA-Z]\w*(\.\w+)+$/.test(links.pkg || '') ? ';package=' + links.pkg : '';
+      return 'intent://' + u.host + u.pathname + u.search + '#Intent;scheme=' + u.protocol.slice(0, -1) + pkg +
         ';S.browser_fallback_url=' + encodeURIComponent(url) + ';end';
     } catch (e) { return null; }
   }
@@ -914,9 +923,20 @@
       var el = labelEls[i], it = el._it;
       var px = LW / 2 + st.x + it.u * LW * ex;
       var py = LH / 2 + st.y + it.v * LH * ey;
-      el.style.transform = 'translate(' + px.toFixed(2) + 'px,' + py.toFixed(2) + 'px) translate(-50%,-50%) scale(' + (it.s * st.z).toFixed(3) + ')';
+      el.style.transform = 'translate(' + px.toFixed(2) + 'px,' + py.toFixed(2) + 'px) translate(-50%,-50%) scale(' + st.z.toFixed(3) + ')';
     }
   }
+  function applyShape(el) {
+    var it = el._it, m = Math.min(it.s, it.hs);
+    var w = el._w0 * it.s, h = el._h0 * it.hs;
+    el.style.width = w + 'px';
+    el.style.height = h + 'px';
+    el.style.fontSize = (15 * m) + 'px';
+    el.style.padding = '0 ' + (12 * m) + 'px';
+    el.style.maxWidth = 'none';
+    el.style.borderRadius = (it.r * Math.min(w, h) / 2) + 'px';
+  }
+  function shapeOf(id) { for (var i = 0; i < labelEls.length; i++) if (labelEls[i]._it.id === id) { applyShape(labelEls[i]); return; } }
   // экранные координаты -> u,v
   function toUV(cx, cy) {
     var b = box();
@@ -937,7 +957,7 @@
       selectLink(it.id);
       if (cnt() === 2) {
         var k = Object.keys(pts);
-        pinch = { d0: Math.hypot(pts[k[0]].x - pts[k[1]].x, pts[k[0]].y - pts[k[1]].y) || 1, s0: it.s };
+        pinch = { d0: Math.hypot(pts[k[0]].x - pts[k[1]].x, pts[k[0]].y - pts[k[1]].y) || 1, s0: it.s, h0: it.hs };
         drag = null;
       } else if (cnt() === 1) {
         var q = toUV(e.clientX, e.clientY);
@@ -951,7 +971,8 @@
         var k = Object.keys(pts);
         var d = Math.hypot(pts[k[0]].x - pts[k[1]].x, pts[k[0]].y - pts[k[1]].y);
         it.s = num(pinch.s0 * d / pinch.d0, 0.4, 4, 1);
-        moved = true; syncSize(); updateLinks();
+        it.hs = num(pinch.h0 * d / pinch.d0, 0.4, 4, 1);
+        moved = true; syncSize(); shapeOf(it.id); updateLinks();
       } else if (drag) {
         var q = toUV(e.clientX, e.clientY);
         it.u = num(q.u + drag.du, -4, 4, it.u);
@@ -984,6 +1005,8 @@
       el.appendChild(f); el.appendChild(t);
       el._it = it;
       layer.appendChild(el);
+      el._w0 = el.offsetWidth; el._h0 = el.offsetHeight;
+      applyShape(el);
       labelEls.push(el);
       bindLabel(el, it);
     });
@@ -995,17 +1018,31 @@
     labelEls.forEach(function (el) { el.classList.toggle('sel', el._it.id === id); });
     syncSize();
   }
+  var lkH = document.getElementById('lkH'), lkR = document.getElementById('lkR');
+  var lkHVal = document.getElementById('lkHVal'), lkRVal = document.getElementById('lkRVal');
   function syncSize() {
     var it = null;
     links.items.forEach(function (x) { if (x.id === selId) it = x; });
     pbSize.hidden = !(placing && it);
-    if (it) { lkSize.value = it.s; lkSizeVal.textContent = it.s.toFixed(2) + '×'; }
+    if (it) {
+      lkSize.value = it.s; lkSizeVal.textContent = it.s.toFixed(2) + '×';
+      lkH.value = it.hs; lkHVal.textContent = it.hs.toFixed(2) + '×';
+      lkR.value = it.r; lkRVal.textContent = Math.round(it.r * 100) + '%';
+    }
   }
-  lkSize.addEventListener('input', function () {
-    links.items.forEach(function (x) { if (x.id === selId) x.s = num(lkSize.value, 0.4, 4, 1); });
-    syncSize(); updateLinks();
+  function onShape() {
+    links.items.forEach(function (x) {
+      if (x.id !== selId) return;
+      x.s = num(lkSize.value, 0.4, 4, 1);
+      x.hs = num(lkH.value, 0.4, 4, 1);
+      x.r = num(lkR.value, 0, 1, 0);
+    });
+    syncSize(); shapeOf(selId); updateLinks();
+  }
+  [lkSize, lkH, lkR].forEach(function (inp) {
+    inp.addEventListener('input', onShape);
+    inp.addEventListener('change', saveLinks);
   });
-  lkSize.addEventListener('change', saveLinks);
 
   // Долгое нажатие по ссылке (видимой или скрытой): ловим на сцене, чтобы жесты фото работали везде
   var press = null;
@@ -1084,7 +1121,7 @@
       cb.addEventListener('click', function () {
         if (links.items.length >= LINK_MAX) return;
         var i = links.items.indexOf(it);
-        links.items.splice(i + 1, 0, { id: uid(), text: it.text, url: it.url, u: num(it.u + 0.06, -4, 4, 0), v: num(it.v + 0.06, -4, 4, 0), s: it.s });
+        links.items.splice(i + 1, 0, { id: uid(), text: it.text, url: it.url, u: num(it.u + 0.06, -4, 4, 0), v: num(it.v + 0.06, -4, 4, 0), s: it.s, hs: it.hs, r: it.r });
         saveLinks(); refreshLinks();
       });
       btns.appendChild(eb); btns.appendChild(cb); btns.appendChild(db);
@@ -1099,6 +1136,7 @@
     linksTitle.textContent = 'Ссылки (' + links.items.length + ')';
     openLinksBtn.textContent = (links.items.length ? 'Ссылки (' + links.items.length + ')' : 'Ссылки') + (links.enabled ? '' : ' — остановлены');
     lkShow.checked = links.show;
+    lkPkg.value = links.pkg || '';
     lkEnable.textContent = links.enabled ? 'Остановить ссылки' : 'Включить ссылки';
     var canPlace = links.items.length && links.enabled;
     lkPlace.disabled = !canPlace;
@@ -1129,11 +1167,12 @@
     } else {
       if (links.items.length >= LINK_MAX) { lkErr.textContent = 'Слишком много ссылок'; return; }
       var n = links.items.length;
-      links.items.push({ id: uid(), text: text, url: url, u: 0, v: -0.35 + (n % 10) * 0.08, s: 1 });
+      links.items.push({ id: uid(), text: text, url: url, u: 0, v: -0.35 + (n % 10) * 0.08, s: 1, hs: 1, r: 0 });
     }
     saveLinks(); closeForm(); refreshLinks();
   });
   lkShow.addEventListener('change', function () { links.show = lkShow.checked; saveLinks(); renderLabels(); });
+  lkPkg.addEventListener('change', function () { links.pkg = lkPkg.value.trim().slice(0, 100); saveLinks(); });
   var stripTimer = 0;
   document.getElementById('lkStrip').addEventListener('click', function () {
     var n = 0;
