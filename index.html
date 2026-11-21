@@ -248,6 +248,21 @@
   .lk-txt b { font-size: 14px; font-weight: 600; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
   .lk-txt span { font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .lempty { color: var(--muted); font-size: 14px; text-align: center; padding: 20px 0; }
+  .confirm-wrap { position: absolute; inset: 0; z-index: 9; background: rgba(0, 0, 0, 0.6); display: flex; align-items: center; justify-content: center; padding: 16px; }
+  .confirm-wrap[hidden] { display: none; }
+  .confirm-box { width: 100%; max-width: 360px; background: var(--surface); border: 1px solid var(--line); border-radius: 0; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+  .confirm-title { font-size: 17px; font-weight: 600; }
+  .confirm-text { font-size: 14px; color: var(--muted); }
+  .confirm-text[hidden] { display: none; }
+  .chk { display: flex; align-items: center; gap: 12px; padding: 11px 12px; border: 1px solid var(--line); border-radius: 0; cursor: pointer; font-size: 14px; user-select: none; -webkit-user-select: none; }
+  .chk .box { width: 20px; height: 20px; border: 2px solid var(--muted); border-radius: 0; flex: none; position: relative; box-sizing: border-box; }
+  .chk.on { border-color: var(--accent); }
+  .chk.on .box { background: var(--accent); border-color: var(--accent); }
+  .chk.on .box::after { content: ''; position: absolute; left: 5px; top: 1px; width: 5px; height: 10px; border: solid #0c0e11; border-width: 0 2px 2px 0; transform: rotate(45deg); }
+  .modelist { display: flex; flex-direction: column; gap: 6px; }
+  .confirm-btns { display: flex; gap: 10px; }
+  .sq-btn { flex: 1; min-height: 46px; border: 1px solid var(--line); background: transparent; color: var(--fg); font: inherit; border-radius: 0; cursor: pointer; }
+  .sq-btn.danger { background: #c0392b; border-color: #c0392b; color: #fff; }
 </style>
 </head>
 <body>
@@ -292,7 +307,7 @@
     <button class="btn" id="reset" type="button">Вернуть пример</button>
     <button class="btn primary" id="close" type="button">Готово</button>
 
-    <div class="version-text">v1.5.0</div>
+    <div class="version-text">v1.6.0</div>
   </div>
 </div>
 
@@ -309,15 +324,9 @@
     <label class="lchk"><input type="checkbox" id="lkShow" checked> Показывать ссылки (скрытые всё равно работают)</label>
     <button class="btn" id="lkEnable" type="button">Остановить ссылки</button>
     <button class="btn" id="lkStrip" type="button">Убрать https:// у всех ссылок</button>
-    <label class="lchk" style="flex-direction:column;align-items:stretch;gap:4px">Способ открытия ссылок
-      <select id="lkMode" style="font:inherit;font-size:15px;color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:10px;width:100%">
-        <option value="intent">1. Intent + пакет браузера</option>
-        <option value="appscheme">2. android-app + пакет браузера</option>
-        <option value="nopkg">3. Intent без пакета (как v1.3.1)</option>
-        <option value="plain">4. Обычная ссылка (как раньше)</option>
-        <option value="http">5. Intent через http, в браузер по умолчанию</option>
-      </select>
-    </label>
+    <div class="lchk" style="flex-direction:column;align-items:stretch;gap:6px">Способ открытия ссылок
+      <div class="modelist" id="lkModeList"></div>
+    </div>
     <label class="lchk" style="flex-direction:column;align-items:stretch;gap:4px">Браузер для ссылок (пакет Android, пусто = по умолчанию)
       <input type="text" id="lkPkg" autocapitalize="off" autocorrect="off" spellcheck="false" style="font:inherit;font-size:15px;color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:10px;width:100%">
     </label>
@@ -333,6 +342,18 @@
     </form>
     <div class="lgrid" id="linksList"></div>
     <div class="lempty" id="linksEmpty">Пока нет ссылок. Нажми «Добавить».</div>
+  </div>
+</div>
+
+<div class="confirm-wrap" id="confirmWrap" hidden role="dialog" aria-modal="true">
+  <div class="confirm-box">
+    <div class="confirm-title" id="confirmTitle"></div>
+    <div class="confirm-text" id="confirmText"></div>
+    <div class="modelist" id="confirmChecks"></div>
+    <div class="confirm-btns">
+      <button class="sq-btn" id="confirmNo" type="button">Нет</button>
+      <button class="sq-btn danger" id="confirmYes" type="button">Да</button>
+    </div>
   </div>
 </div>
 
@@ -718,6 +739,7 @@
   sheetWrap.addEventListener('click', function (e) { if (e.target === sheetWrap) closeSheet(); });
   document.addEventListener('keydown', function (e) {
     if (e.key !== 'Escape') return;
+    if (!confirmWrap.hidden) { document.getElementById('confirmNo').click(); return; }
     if (placing) { stopPlacing(); return; }
     if (!linksWrap.hidden) { closeLinksScreen(); return; }
     closeSheet();
@@ -741,8 +763,45 @@
     apply();
     saveSettings();
   });
+  // ---------- Окно подтверждения (квадратное) ----------
+  var confirmWrap = document.getElementById('confirmWrap');
+  function askConfirm(o) {
+    var yes = document.getElementById('confirmYes'), no = document.getElementById('confirmNo');
+    var box = document.getElementById('confirmChecks'), txt = document.getElementById('confirmText');
+    document.getElementById('confirmTitle').textContent = o.title;
+    txt.textContent = o.text || ''; txt.hidden = !o.text;
+    box.textContent = '';
+    var state = {};
+    (o.checks || []).forEach(function (c) {
+      state[c.id] = !!c.on;
+      var row = document.createElement('div'); row.className = 'chk' + (c.on ? ' on' : '');
+      var mk = document.createElement('span'); mk.className = 'box';
+      var lb = document.createElement('span'); lb.textContent = c.label;
+      row.appendChild(mk); row.appendChild(lb);
+      row.addEventListener('click', function () { state[c.id] = !state[c.id]; row.classList.toggle('on', state[c.id]); });
+      box.appendChild(row);
+    });
+    yes.textContent = o.yes || 'Да';
+    confirmWrap.hidden = false;
+    function done(ok) { confirmWrap.hidden = true; yes.onclick = no.onclick = confirmWrap.onclick = null; if (ok) o.ok(state); }
+    yes.onclick = function () { done(true); };
+    no.onclick = function () { done(false); };
+    confirmWrap.onclick = function (e) { if (e.target === confirmWrap) done(false); };
+  }
   document.getElementById('resetTransform').addEventListener('click', function () {
-    resetAll();
+    askConfirm({
+      title: 'Вы уверены?',
+      text: 'Отметь, что сбросить:',
+      checks: [
+        { id: 'view', label: 'Размер и положение фото', on: true },
+        { id: 'links', label: 'Все ссылки (удалить)', on: false }
+      ],
+      yes: 'Сбросить',
+      ok: function (st2) {
+        if (st2.view) resetAll();
+        if (st2.links) { links.items = []; saveLinks(); refreshLinks(); }
+      }
+    });
   });
 
   var SAMPLE_SVG =
@@ -807,9 +866,16 @@
   });
 
   document.getElementById('reset').addEventListener('click', function () {
-    showSample();
-    dbDel('photo').catch(function () {});
-    closeSheet();
+    askConfirm({
+      title: 'Вернуть пример?',
+      text: 'Твоё фото будет удалено, останется картинка-пример.',
+      yes: 'Да',
+      ok: function () {
+        showSample();
+        dbDel('photo').catch(function () {});
+        closeSheet();
+      }
+    });
   });
 
 
@@ -828,7 +894,19 @@
   var lkErr = document.getElementById('lkErr');
   var lkShow = document.getElementById('lkShow');
   var lkPkg = document.getElementById('lkPkg');
-  var lkMode = document.getElementById('lkMode');
+  var lkModeList = document.getElementById('lkModeList');
+  var MODES = [['intent', 'Intent + пакет браузера'], ['appscheme', 'android-app + пакет браузера'], ['nopkg', 'Intent без пакета'], ['plain', 'Обычная ссылка'], ['http', 'Intent через http']];
+  function renderModes() {
+    lkModeList.textContent = '';
+    MODES.forEach(function (m, i) {
+      var row = document.createElement('div'); row.className = 'chk' + (links.mode === m[0] ? ' on' : '');
+      var mk = document.createElement('span'); mk.className = 'box';
+      var lb = document.createElement('span'); lb.textContent = (i + 1) + '. ' + m[1];
+      row.appendChild(mk); row.appendChild(lb);
+      row.addEventListener('click', function () { links.mode = m[0]; saveLinks(); renderModes(); });
+      lkModeList.appendChild(row);
+    });
+  }
   var lkEnable = document.getElementById('lkEnable');
   var lkPlace = document.getElementById('lkPlace');
   var placeBar = document.getElementById('placeBar');
@@ -1154,7 +1232,7 @@
     openLinksBtn.textContent = (links.items.length ? 'Ссылки (' + links.items.length + ')' : 'Ссылки') + (links.enabled ? '' : ' — остановлены');
     lkShow.checked = links.show;
     lkPkg.value = links.pkg || '';
-    lkMode.value = links.mode;
+    renderModes();
     lkEnable.textContent = links.enabled ? 'Остановить ссылки' : 'Включить ссылки';
     var canPlace = links.items.length && links.enabled;
     lkPlace.disabled = !canPlace;
@@ -1190,7 +1268,6 @@
     saveLinks(); closeForm(); refreshLinks();
   });
   lkShow.addEventListener('change', function () { links.show = lkShow.checked; saveLinks(); renderLabels(); });
-  lkMode.addEventListener('change', function () { links.mode = lkMode.value; saveLinks(); });
   lkPkg.addEventListener('change', function () { links.pkg = lkPkg.value.trim().slice(0, 100); saveLinks(); });
   var stripTimer = 0;
   document.getElementById('lkStrip').addEventListener('click', function () {
@@ -1240,6 +1317,7 @@
   window.addEventListener('resize', function () { renderLabels(); });
   // Для Android-приложения: кнопка «Назад». true = закрыли что-то открытое, false = можно выйти.
   window.__androidBack = function () {
+    if (!confirmWrap.hidden) { document.getElementById('confirmNo').click(); return true; }
     if (placing) { stopPlacing(); return true; }
     if (!linksWrap.hidden) { closeLinksScreen(); return true; }
     if (!sheetWrap.hidden) { closeSheet(); return true; }
