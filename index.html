@@ -46,6 +46,7 @@
     object-fit: contain;
     transform-origin: 50% 50%;
     pointer-events: none;
+    will-change: transform;
     -webkit-user-drag: none;
   }
   .ui {
@@ -93,9 +94,11 @@
     display: flex;
     flex-direction: column;
     gap: 10px;
+    max-height: 100%;
+    overflow-y: auto;
     transition: background-color 0.4s ease, border-color 0.4s ease;
   }
-  .sheet > * { transition: opacity 0.4s ease; }
+  .sheet > * { transition: opacity 0.4s ease; flex: none; }
   body.ui-fading .sheet-wrap { background: transparent; }
   body.ui-fading .sheet { background: transparent; border-color: transparent; }
   body.ui-fading .sheet > *:not(.keep) { opacity: 0; pointer-events: none; }
@@ -248,6 +251,13 @@
   .lk-txt b { font-size: 14px; font-weight: 600; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
   .lk-txt span { font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .lempty { color: var(--muted); font-size: 14px; text-align: center; padding: 20px 0; }
+  .sec { margin: 8px 0 0; font-size: 13px; color: var(--muted); }
+  .pgrow { display: flex; flex-wrap: wrap; gap: 8px; }
+  .pg { min-width: 44px; height: 44px; padding: 0 10px; border: 1px solid var(--line); border-radius: 0; background: transparent; color: var(--fg); font: inherit; cursor: pointer; }
+  .pg.on { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
+  #mvList { max-height: 40vh; overflow-y: auto; }
+  .pg-toast { position: absolute; left: 50%; top: max(14px, env(safe-area-inset-top)); transform: translateX(-50%); z-index: 8; padding: 8px 14px; background: rgba(12, 14, 17, 0.8); border: 1px solid var(--line); color: var(--fg); font-size: 14px; pointer-events: none; }
+  .pg-toast[hidden] { display: none; }
   .confirm-wrap { position: absolute; inset: 0; z-index: 9; background: rgba(0, 0, 0, 0.6); display: flex; align-items: center; justify-content: center; padding: 16px; }
   .confirm-wrap[hidden] { display: none; }
   .confirm-box { width: 100%; max-width: 360px; background: var(--surface); border: 1px solid var(--line); border-radius: 0; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
@@ -286,13 +296,12 @@
   <div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
     <h1 id="sheetTitle">Настройки</h1>
     <p class="note" id="note">Фото и настройки хранятся только на этом телефоне.</p>
+    <div class="sec">Страницы (свайп вправо — вперёд, влево — назад)</div>
+    <div class="pgrow" id="pgRow"></div>
+    <div class="sec" id="photoTitle">Фото 1</div>
     <input type="file" id="file" class="file-hidden" accept="image/*">
     <label class="btn primary" for="file">Выбрать новое фото</label>
 
-    <div class="setting-row">
-      <label>Прозрачность кнопки <span id="opacityVal">100%</span></label>
-      <input type="range" id="gearOpacity" min="0.1" max="1" step="0.05" value="1">
-    </div>
     <div class="setting-row">
       <label>Ширина <span id="sxVal">1.00×</span></label>
       <input type="range" id="scaleX" min="0.5" max="3" step="0.05" value="1">
@@ -301,13 +310,19 @@
       <label>Высота <span id="syVal">1.00×</span></label>
       <input type="range" id="scaleY" min="0.5" max="3" step="0.05" value="1">
     </div>
-
-    <button class="btn" id="openLinks" type="button">Ссылки</button>
     <button class="btn" id="resetTransform" type="button">Сбросить размер и положение</button>
     <button class="btn" id="reset" type="button">Вернуть пример</button>
+    <button class="btn" id="delPage" type="button" hidden>Удалить страницу</button>
+
+    <div class="sec">Общие</div>
+    <div class="setting-row">
+      <label>Прозрачность кнопки <span id="opacityVal">100%</span></label>
+      <input type="range" id="gearOpacity" min="0.1" max="1" step="0.05" value="1">
+    </div>
+    <button class="btn" id="openLinks" type="button">Ссылки</button>
     <button class="btn primary" id="close" type="button">Готово</button>
 
-    <div class="version-text">v1.6.0</div>
+    <div class="version-text">v1.7.0</div>
   </div>
 </div>
 
@@ -320,6 +335,18 @@
     <div class="lrow">
       <button class="btn primary" id="lkAdd" type="button">Добавить</button>
       <button class="btn" id="lkPlace" type="button">Расположить</button>
+    </div>
+    <button class="btn" id="lkMove" type="button" hidden>Перенести на другую страницу</button>
+    <div class="lform" id="mvPanel" hidden>
+      <div class="note" style="margin:0">Отметь ссылки и выбери страницу. Размер и место сохранятся.</div>
+      <div class="modelist" id="mvList"></div>
+      <div class="note" style="margin:0">Куда перенести:</div>
+      <div class="pgrow" id="mvTarget"></div>
+      <div class="lerr" id="mvErr"></div>
+      <div class="lrow">
+        <button class="btn primary" id="mvGo" type="button">Перенести</button>
+        <button class="btn" id="mvCancel" type="button">Отмена</button>
+      </div>
     </div>
     <label class="lchk"><input type="checkbox" id="lkShow" checked> Показывать ссылки (скрытые всё равно работают)</label>
     <button class="btn" id="lkEnable" type="button">Остановить ссылки</button>
@@ -356,6 +383,8 @@
     </div>
   </div>
 </div>
+
+<div class="pg-toast" id="pgToast" hidden></div>
 
 <div class="place-bar" id="placeBar" hidden>
   <div id="pbHint">Перетаскивай ссылки. Нажми на ссылку, чтобы менять ширину, высоту и скругление (или щипни её двумя пальцами). Фото можно приближать.</div>
@@ -395,7 +424,9 @@
   function clampS(v) { return Math.min(3, Math.max(0.5, v)); }
   function clampZ(v) { return Math.min(8, Math.max(1, v)); }
 
-  function box() { return stage.getBoundingClientRect(); }
+  var bx = { left: 0, top: 0, width: 0, height: 0 };
+  function remeasure() { var r = stage.getBoundingClientRect(); bx = { left: r.left, top: r.top, width: r.width, height: r.height }; }
+  function box() { return bx; }
   function rel(e) {
     var b = box();
     return { x: e.clientX - b.left - b.width / 2, y: e.clientY - b.top - b.height / 2 };
@@ -507,6 +538,19 @@
     raf = requestAnimationFrame(step);
   }
 
+  // Свайп по страницам: вправо = вперёд, влево = назад. Только когда фото не приближено.
+  function trySwipe(e, t) {
+    if (placing || pages.count < 2 || t.z0 > 1.02 || st.z > 1.02) return false;
+    var dx = e.clientX - t.x, dy = e.clientY - t.y, dt = Math.max(1, Date.now() - t.t);
+    if (Math.abs(dx) < 70 || Math.abs(dx) < 1.6 * Math.abs(dy)) return false;
+    var b = box(), f = fitted();
+    // если растянутое фото ещё можно двигать вбок, листаем только резким броском
+    if (f.w * st.sx * st.z > b.width + 1 && (dt > 350 || Math.abs(dx) / dt < 0.5)) return false;
+    var to = pages.cur + (dx > 0 ? 1 : -1);
+    if (to < 0 || to >= pages.count) return false;
+    goPage(to, true);
+    return true;
+  }
   function count() { return Object.keys(ptrs).length; }
   function startPinch() {
     var ids = Object.keys(ptrs);
@@ -528,7 +572,7 @@
     ptrs[e.pointerId] = rel(e);
     if (count() === 1) {
       last = rel(e);
-      tap = { t: Date.now(), x: e.clientX, y: e.clientY, moved: false, multi: false };
+      tap = { t: Date.now(), x: e.clientX, y: e.clientY, moved: false, multi: false, z0: st.z };
     } else {
       if (tap) tap.multi = true;
       if (count() === 2) { stopAnim(); startPinch(); }
@@ -577,6 +621,7 @@
       last = ptrs[left[0]];
     } else if (left.length === 0) {
       last = null;
+      if (e.type === 'pointerup' && tap && !tap.multi && trySwipe(e, tap)) { tap = null; return; }
       if (e.type === 'pointerup' && tap && !tap.moved && !tap.multi && Date.now() - tap.t < 300) {
         var now = Date.now();
         if (now - lastTap.t < 320 && Math.hypot(e.clientX - lastTap.x, e.clientY - lastTap.y) < 40) {
@@ -612,7 +657,7 @@
     zoomAt(rel(e), Math.exp(-e.deltaY * 0.0022));
   }, { passive: false });
 
-  window.addEventListener('resize', apply);
+  window.addEventListener('resize', function () { remeasure(); apply(); });
   img.addEventListener('load', apply);
 
   function openDb() {
@@ -653,50 +698,58 @@
     });
   }
 
-  function saveSettings() {
-    var settings = {
-      sx: st.sx,
-      sy: st.sy,
-      opacity: parseFloat(opEl.value)
-    };
-    try {
-      localStorage.setItem('photo-settings', JSON.stringify(settings));
-    } catch (e) {}
-    dbPut('settings', settings).catch(function () {});
+  var PAGE_MAX = 10;
+  var pages = { count: 1, cur: 0, sx: [1], sy: [1] };
+  function sanitizePages(d) {
+    var out = { count: 1, cur: 0, sx: [1], sy: [1] };
+    if (!d || typeof d !== 'object') return out;
+    var n = Math.min(PAGE_MAX, Math.max(1, parseInt(d.count, 10) || 1));
+    out.count = n;
+    for (var i = 0; i < n; i++) {
+      out.sx[i] = clampS(parseFloat(d.sx && d.sx[i]) || 1);
+      out.sy[i] = clampS(parseFloat(d.sy && d.sy[i]) || 1);
+    }
+    out.cur = Math.min(n - 1, Math.max(0, parseInt(d.cur, 10) || 0));
+    return out;
   }
-
-  function applySettings(s) {
-    st.sx = clampS(s.sx || 1);
-    st.sy = clampS(s.sy || 1);
-    var op = Math.min(1, Math.max(0.1, s.opacity === undefined ? 1 : s.opacity));
+  function savePages() {
+    try { localStorage.setItem('photo-pages', JSON.stringify(pages)); } catch (e) {}
+    dbPut('pages', pages).catch(function () {});
+  }
+  function saveSettings() {
+    pages.sx[pages.cur] = st.sx;
+    pages.sy[pages.cur] = st.sy;
+    var settings = { sx: pages.sx[0], sy: pages.sy[0], opacity: parseFloat(opEl.value) };
+    try { localStorage.setItem('photo-settings', JSON.stringify(settings)); } catch (e) {}
+    dbPut('settings', settings).catch(function () {});
+    savePages();
+  }
+  function applyOpacity(o) {
+    var op = Math.min(1, Math.max(0.1, (o === undefined || o === null) ? 1 : o));
     opEl.value = op;
     opVal.textContent = Math.round(op * 100) + '%';
     gear.style.opacity = op;
-    syncScaleUI();
-    apply();
   }
-
+  // загружает настройки и страницы; старые данные (одно фото) становятся страницей 1
   function loadSettings() {
-    var settings = null;
-    try {
-      var stored = localStorage.getItem('photo-settings');
-      if (stored) {
-        settings = JSON.parse(stored);
-      }
-    } catch (e) {}
-
-    if (settings) {
-      applySettings(settings);
-    } else {
-      dbGet('settings').then(function (s) {
-        if (s) {
-          applySettings(s);
-          try {
-            localStorage.setItem('photo-settings', JSON.stringify(s));
-          } catch (e) {}
-        }
-      }).catch(function () {});
+    var s = null, pg = null;
+    try { var a = localStorage.getItem('photo-settings'); if (a) s = JSON.parse(a); } catch (e) {}
+    try { var b = localStorage.getItem('photo-pages'); if (b) pg = JSON.parse(b); } catch (e) {}
+    function use(s2, pg2) {
+      if (pg2) pages = sanitizePages(pg2);
+      else if (s2) { pages.sx[0] = clampS(s2.sx || 1); pages.sy[0] = clampS(s2.sy || 1); }
+      applyOpacity(s2 ? s2.opacity : 1);
     }
+    if (s || pg) { use(s, pg); return Promise.resolve(); }
+    var nul = function () { return null; };
+    return Promise.all([dbGet('settings').catch(nul), dbGet('pages').catch(nul)]).then(function (r) {
+      if (!r[0] && !r[1]) return;
+      use(r[0], r[1]);
+      try {
+        if (r[0]) localStorage.setItem('photo-settings', JSON.stringify(r[0]));
+        if (r[1]) localStorage.setItem('photo-pages', JSON.stringify(r[1]));
+      } catch (e) {}
+    });
   }
 
   var fadeTimer = 0;
@@ -738,6 +791,13 @@
   document.getElementById('close').addEventListener('click', closeSheet);
   sheetWrap.addEventListener('click', function (e) { if (e.target === sheetWrap) closeSheet(); });
   document.addEventListener('keydown', function (e) {
+    if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+      if (sheetWrap.hidden && linksWrap.hidden && confirmWrap.hidden && !placing) {
+        var to = pages.cur + (e.key === 'ArrowRight' ? 1 : -1);
+        if (to >= 0 && to < pages.count) goPage(to, true);
+      }
+      return;
+    }
     if (e.key !== 'Escape') return;
     if (!confirmWrap.hidden) { document.getElementById('confirmNo').click(); return; }
     if (placing) { stopPlacing(); return; }
@@ -794,12 +854,12 @@
       text: 'Отметь, что сбросить:',
       checks: [
         { id: 'view', label: 'Размер и положение фото', on: true },
-        { id: 'links', label: 'Все ссылки (удалить)', on: false }
+        { id: 'links', label: 'Ссылки этой страницы (удалить)', on: false }
       ],
       yes: 'Сбросить',
       ok: function (st2) {
         if (st2.view) resetAll();
-        if (st2.links) { links.items = []; saveLinks(); refreshLinks(); }
+        if (st2.links) { links.items = links.items.filter(function (x) { return x.p !== pages.cur; }); saveLinks(); refreshLinks(); }
       }
     });
   });
@@ -854,7 +914,8 @@
     var ready = file.size > 8 * 1024 * 1024 ? downscale(file) : Promise.resolve(file);
     ready.then(function (blob) {
       showBlob(blob);
-      return dbPut('photo', blob).then(
+      blobCache[pages.cur] = blob;
+      return dbPut(pageKey(pages.cur), blob).then(
         function () { closeSheet(); },
         function () { note.textContent = 'Фото показано, но не сохранилось.'; }
       );
@@ -872,12 +933,100 @@
       yes: 'Да',
       ok: function () {
         showSample();
-        dbDel('photo').catch(function () {});
+        delete blobCache[pages.cur];
+        dbDel(pageKey(pages.cur)).catch(function () {});
         closeSheet();
       }
     });
   });
 
+
+  // ---------- Страницы ----------
+  var pgRow = document.getElementById('pgRow');
+  var photoTitle = document.getElementById('photoTitle');
+  var delPageBtn = document.getElementById('delPage');
+  var pgToast = document.getElementById('pgToast'), toastTimer = 0;
+  var blobCache = {}, loadTok = 0;
+  function pageKey(i) { return i === 0 ? 'photo' : 'photo-' + i; }
+  function getBlob(i) {
+    if (blobCache[i]) return Promise.resolve(blobCache[i]);
+    return dbGet(pageKey(i)).then(function (b) { if (b) blobCache[i] = b; return b || null; }, function () { return null; });
+  }
+  function toast(msg) {
+    pgToast.textContent = msg; pgToast.hidden = false;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { pgToast.hidden = true; }, 900);
+  }
+  function renderPages() {
+    pgRow.textContent = '';
+    for (var i = 0; i < pages.count; i++) (function (i) {
+      var b = document.createElement('button');
+      b.type = 'button'; b.className = 'pg' + (i === pages.cur ? ' on' : ''); b.textContent = String(i + 1);
+      b.addEventListener('click', function () { if (i !== pages.cur) goPage(i, true); });
+      pgRow.appendChild(b);
+    })(i);
+    if (pages.count < PAGE_MAX) {
+      var a = document.createElement('button');
+      a.type = 'button'; a.className = 'pg'; a.textContent = '+'; a.setAttribute('aria-label', 'Добавить страницу');
+      a.addEventListener('click', addPage);
+      pgRow.appendChild(a);
+    }
+    photoTitle.textContent = 'Фото ' + (pages.cur + 1) + ' — настройки этой страницы';
+    delPageBtn.hidden = pages.count < 2;
+    delPageBtn.textContent = 'Удалить страницу ' + (pages.cur + 1);
+  }
+  // user = true: переключил человек (сохраняем и показываем плавно)
+  function goPage(i, user) {
+    i = Math.max(0, Math.min(pages.count - 1, i));
+    var tok = ++loadTok;
+    getBlob(i).then(function (blob) {
+      if (tok !== loadTok) return;
+      pages.cur = i;
+      st.sx = pages.sx[i]; st.sy = pages.sy[i];
+      if (blob) showBlob(blob); else showSample();
+      syncScaleUI(); apply();
+      mvPanel.hidden = true;
+      renderPages(); refreshLinks();
+      if (user) {
+        savePages();
+        if (img.animate) { try { img.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 180 }); layer.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 180 }); } catch (e) {} }
+        if (sheetWrap.hidden && pages.count > 1) toast('Страница ' + (i + 1) + ' из ' + pages.count);
+      }
+      if (i + 1 < pages.count) getBlob(i + 1);
+      if (i > 0) getBlob(i - 1);
+    });
+  }
+  function addPage() {
+    if (pages.count >= PAGE_MAX) return;
+    pages.sx.push(1); pages.sy.push(1); pages.count++;
+    goPage(pages.count - 1, true);
+  }
+  function removePage(d) {
+    var n = pages.count, chain = Promise.resolve();
+    for (var i = d; i < n - 1; i++) (function (i) {
+      chain = chain.then(function () { return dbGet(pageKey(i + 1)); }).then(function (b) { return b ? dbPut(pageKey(i), b) : dbDel(pageKey(i)); });
+    })(i);
+    chain = chain.then(function () { return dbDel(pageKey(n - 1)); });
+    chain.catch(function () {}).then(function () {
+      blobCache = {};
+      pages.sx.splice(d, 1); pages.sy.splice(d, 1); pages.count = n - 1;
+      links.items = links.items.filter(function (x) { return x.p !== d; });
+      links.items.forEach(function (x) { if (x.p > d) x.p--; });
+      var cur = pages.cur; if (d < cur) cur--;
+      pages.cur = Math.min(cur, pages.count - 1);
+      saveLinks();
+      goPage(pages.cur, true);
+    });
+  }
+  delPageBtn.addEventListener('click', function () {
+    var d = pages.cur;
+    askConfirm({
+      title: 'Удалить страницу ' + (d + 1) + '?',
+      text: 'Её фото и ссылки на ней будут удалены. Остальные страницы сдвинутся.',
+      yes: 'Удалить',
+      ok: function () { removePage(d); }
+    });
+  });
 
   // ---------- Ссылки ----------
   // Позиция u,v: от центра экрана в долях ширины/высоты экрана при зуме 1 и растяжении 1.
@@ -913,11 +1062,12 @@
   var pbSize = document.getElementById('pbSize');
   var lkSize = document.getElementById('lkSize');
   var lkSizeVal = document.getElementById('lkSizeVal');
-  var LINK_MAX = 50, HOLD_MS = 300;
+  var LINK_MAX = 85, HOLD_MS = 300;
   var links = { show: true, enabled: true, pkg: 'org.cromite.cromite', mode: 'intent', items: [] };
   var placing = false, editingId = null, linksTouched = false, selId = null;
   var labelEls = [], LW = 0, LH = 0;
 
+  function pageItems() { return links.items.filter(function (x) { return x.p === pages.cur; }); }
   function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
   function num(v, lo, hi, d) { v = parseFloat(v); return isNaN(v) ? d : Math.min(hi, Math.max(lo, v)); }
 
@@ -948,15 +1098,19 @@
     out.enabled = d.enabled !== false;
     if (typeof d.pkg === 'string') out.pkg = d.pkg.trim().slice(0, 100);
     if (['intent', 'appscheme', 'nopkg', 'plain', 'http'].indexOf(d.mode) >= 0) out.mode = d.mode;
-    (Array.isArray(d.items) ? d.items : []).slice(0, LINK_MAX).forEach(function (it) {
+    var cnt = {};
+    (Array.isArray(d.items) ? d.items : []).forEach(function (it) {
       if (!it || typeof it !== 'object') return;
+      var p = Math.min(PAGE_MAX - 1, Math.max(0, parseInt(it.p, 10) || 0));
+      cnt[p] = (cnt[p] || 0) + 1;
+      if (cnt[p] > LINK_MAX) return;
       var url = String(it.url || '').trim();
       if (!normUrl(url)) return;
       var u, v;
       if (it.u !== undefined && it.v !== undefined) { u = num(it.u, -4, 4, 0); v = num(it.v, -4, 4, 0); }
       else { u = (num(it.x, 0, 100, 50) - 50) / 100; v = (num(it.y, 0, 100, 50) - 50) / 100; } // старый формат (v1.1)
       out.items.push({
-        id: String(it.id || uid()),
+        id: String(it.id || uid()), p: p,
         text: String(it.text || hostOf(url)).slice(0, 40),
         url: url, u: u, v: v, s: num(it.s, 0.4, 4, 1), hs: num(it.hs === undefined ? it.s : it.hs, 0.4, 4, 1), r: num(it.r, 0, 1, 0)
       });
@@ -1092,7 +1246,7 @@
     labelEls = [];
     measure();
     if (!links.enabled) return;
-    links.items.forEach(function (it) {
+    pageItems().forEach(function (it) {
       var el = document.createElement('div');
       el.className = 'link-label' + (links.show ? '' : ' ghost') + (placing && it.id === selId ? ' sel' : '');
       var f = document.createElement('span'); f.className = 'fill';
@@ -1187,7 +1341,8 @@
   var armedTimer = 0;
   function renderList() {
     linksList.textContent = '';
-    links.items.forEach(function (it) {
+    var pitems = pageItems(), pn = pitems.length;
+    pitems.forEach(function (it) {
       var row = document.createElement('div'); row.className = 'lk-item';
       var btns = document.createElement('div'); btns.className = 'lk-btns';
       var eb = document.createElement('button');
@@ -1214,9 +1369,9 @@
       cb.type = 'button'; cb.className = 'lk-ico copy'; cb.textContent = 'Copy';
       cb.setAttribute('aria-label', 'Копия'); cb.title = 'Сделать копию';
       cb.addEventListener('click', function () {
-        if (links.items.length >= LINK_MAX) return;
+        if (pn >= LINK_MAX) return;
         var i = links.items.indexOf(it);
-        links.items.splice(i + 1, 0, { id: uid(), text: it.text, url: it.url, u: num(it.u + 0.06, -4, 4, 0), v: num(it.v + 0.06, -4, 4, 0), s: it.s, hs: it.hs, r: it.r });
+        links.items.splice(i + 1, 0, { id: uid(), text: it.text, url: it.url, u: num(it.u + 0.06, -4, 4, 0), v: num(it.v + 0.06, -4, 4, 0), s: it.s, hs: it.hs, r: it.r, p: it.p });
         saveLinks(); refreshLinks();
       });
       btns.appendChild(eb); btns.appendChild(cb); btns.appendChild(db);
@@ -1227,14 +1382,15 @@
       row.appendChild(btns); row.appendChild(tx);
       linksList.appendChild(row);
     });
-    linksEmpty.hidden = links.items.length > 0;
-    linksTitle.textContent = 'Ссылки (' + links.items.length + ')';
-    openLinksBtn.textContent = (links.items.length ? 'Ссылки (' + links.items.length + ')' : 'Ссылки') + (links.enabled ? '' : ' — остановлены');
+    linksEmpty.hidden = pn > 0;
+    linksTitle.textContent = (pages.count > 1 ? 'Ссылки · стр. ' + (pages.cur + 1) : 'Ссылки') + ' (' + pn + ')';
+    openLinksBtn.textContent = (pn ? 'Ссылки (' + pn + ')' : 'Ссылки') + (links.enabled ? '' : ' — остановлены');
+    lkMove.hidden = pages.count < 2 || !pn;
     lkShow.checked = links.show;
     lkPkg.value = links.pkg || '';
     renderModes();
     lkEnable.textContent = links.enabled ? 'Остановить ссылки' : 'Включить ссылки';
-    var canPlace = links.items.length && links.enabled;
+    var canPlace = pn && links.enabled;
     lkPlace.disabled = !canPlace;
     lkPlace.style.opacity = canPlace ? '' : '0.45';
   }
@@ -1261,9 +1417,9 @@
     if (editingId) {
       links.items.forEach(function (x) { if (x.id === editingId) { x.text = text; x.url = url; } });
     } else {
-      if (links.items.length >= LINK_MAX) { lkErr.textContent = 'Слишком много ссылок'; return; }
-      var n = links.items.length;
-      links.items.push({ id: uid(), text: text, url: url, u: 0, v: -0.35 + (n % 10) * 0.08, s: 1, hs: 1, r: 0 });
+      if (pageItems().length >= LINK_MAX) { lkErr.textContent = 'Слишком много ссылок на странице'; return; }
+      var n = pageItems().length;
+      links.items.push({ id: uid(), text: text, url: url, u: 0, v: -0.35 + (n % 10) * 0.08, s: 1, hs: 1, r: 0, p: pages.cur });
     }
     saveLinks(); closeForm(); refreshLinks();
   });
@@ -1287,13 +1443,49 @@
     saveLinks(); cancelPress(); refreshLinks();
   });
 
+  var lkMove = document.getElementById('lkMove'), mvPanel = document.getElementById('mvPanel');
+  var mvList = document.getElementById('mvList'), mvTarget = document.getElementById('mvTarget'), mvErr = document.getElementById('mvErr');
+  var mvSel = {}, mvTo = -1;
+  function mvRow(label, on, fn) {
+    var row = document.createElement('div'); row.className = 'chk' + (on ? ' on' : '');
+    var mk = document.createElement('span'); mk.className = 'box';
+    var lb = document.createElement('span'); lb.textContent = label;
+    row.appendChild(mk); row.appendChild(lb);
+    row.addEventListener('click', fn);
+    mvList.appendChild(row);
+  }
+  function renderMove() {
+    mvList.textContent = '';
+    var items = pageItems();
+    var allOn = items.length > 0 && items.every(function (x) { return mvSel[x.id]; });
+    mvRow('Все ссылки этой страницы', allOn, function () { items.forEach(function (x) { mvSel[x.id] = !allOn; }); renderMove(); });
+    items.forEach(function (x) { mvRow(x.text, !!mvSel[x.id], function () { mvSel[x.id] = !mvSel[x.id]; renderMove(); }); });
+    mvTarget.textContent = '';
+    for (var i = 0; i < pages.count; i++) if (i !== pages.cur) (function (i) {
+      var b = document.createElement('button');
+      b.type = 'button'; b.className = 'pg' + (mvTo === i ? ' on' : ''); b.textContent = String(i + 1);
+      b.addEventListener('click', function () { mvTo = i; renderMove(); });
+      mvTarget.appendChild(b);
+    })(i);
+  }
+  lkMove.addEventListener('click', function () { closeForm(); mvSel = {}; mvTo = -1; mvErr.textContent = ''; renderMove(); mvPanel.hidden = false; mvPanel.scrollIntoView({ block: 'nearest' }); });
+  document.getElementById('mvCancel').addEventListener('click', function () { mvPanel.hidden = true; });
+  document.getElementById('mvGo').addEventListener('click', function () {
+    var sel = pageItems().filter(function (x) { return mvSel[x.id]; });
+    if (!sel.length) { mvErr.textContent = 'Отметь хотя бы одну ссылку'; return; }
+    if (mvTo < 0) { mvErr.textContent = 'Выбери страницу, куда перенести'; return; }
+    var have = links.items.filter(function (x) { return x.p === mvTo; }).length;
+    if (have + sel.length > LINK_MAX) { mvErr.textContent = 'На странице ' + (mvTo + 1) + ' не хватит места (максимум ' + LINK_MAX + ')'; return; }
+    sel.forEach(function (x) { x.p = mvTo; }); // размер и место не меняются
+    saveLinks(); mvPanel.hidden = true; refreshLinks();
+  });
   function openLinksScreen() { closeForm(); linksWrap.hidden = false; refreshLinks(); }
-  function closeLinksScreen() { closeForm(); linksWrap.hidden = true; }
+  function closeLinksScreen() { closeForm(); mvPanel.hidden = true; linksWrap.hidden = true; }
   openLinksBtn.addEventListener('click', openLinksScreen);
   document.getElementById('linksBack').addEventListener('click', closeLinksScreen);
 
   function startPlacing() {
-    if (!links.items.length || !links.enabled) return;
+    if (!pageItems().length || !links.enabled) return;
     closeLinksScreen();
     closeSheet();
     cancelPress();
@@ -1324,10 +1516,11 @@
     return false;
   };
 
+  remeasure();
+  try { if (window.ResizeObserver) new ResizeObserver(function () { remeasure(); apply(); }).observe(stage); } catch (e) {}
   showSample();
-  loadSettings();
   loadLinks();
-  dbGet('photo').then(function (blob) { if (blob) showBlob(blob); }).catch(function () {});
+  loadSettings().catch(function () {}).then(function () { goPage(pages.cur, false); });
 
   if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
     window.addEventListener('load', function () {
