@@ -292,7 +292,7 @@
     <button class="btn" id="reset" type="button">Вернуть пример</button>
     <button class="btn primary" id="close" type="button">Готово</button>
 
-    <div class="version-text">v1.4.2</div>
+    <div class="version-text">v1.5.0</div>
   </div>
 </div>
 
@@ -906,7 +906,7 @@
   // Способ открытия на Android (выбирается в экране «Ссылки»):
   // intent: intent:// с пакетом браузера; appscheme: android-app://пакет/...; nopkg: intent:// без пакета; plain: обычная ссылка.
   function toIntent(url) {
-    if (!/Android/i.test(navigator.userAgent || '') || links.mode === 'plain') return null;
+    if (!/Android/i.test(navigator.userAgent || '') || /PhotoApp/.test(navigator.userAgent || '') || links.mode === 'plain') return null;
     try {
       var u = new URL(url);
       if (u.protocol !== 'http:' && u.protocol !== 'https:') return null;
@@ -1238,6 +1238,13 @@
   lkPlace.addEventListener('click', startPlacing);
   document.getElementById('placeDone').addEventListener('click', stopPlacing);
   window.addEventListener('resize', function () { renderLabels(); });
+  // Для Android-приложения: кнопка «Назад». true = закрыли что-то открытое, false = можно выйти.
+  window.__androidBack = function () {
+    if (placing) { stopPlacing(); return true; }
+    if (!linksWrap.hidden) { closeLinksScreen(); return true; }
+    if (!sheetWrap.hidden) { closeSheet(); return true; }
+    return false;
+  };
 
   showSample();
   loadSettings();
