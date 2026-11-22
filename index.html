@@ -167,7 +167,8 @@
     opacity: 0.5;
   }
 
-  .links-layer { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+  .links-layer { position: absolute; inset: 0; pointer-events: none; overflow: hidden; will-change: translate; }
+  .photo { will-change: transform, translate; }
   .link-label {
     position: absolute; left: 0; top: 0;
     pointer-events: none;
@@ -215,8 +216,8 @@
   .place-bar[hidden] { display: none; }
   .numin { width: 5.2em; font: inherit; color: var(--fg); background: var(--bg); border: 1px solid var(--accent); padding: 2px 6px; text-align: right; }
   .editable { cursor: pointer; text-decoration: underline dotted; text-underline-offset: 3px; }
-  .hnd { position: absolute; left: 0; top: 0; width: 26px; height: 26px; background: var(--accent); border: 2px solid #fff; touch-action: none; pointer-events: none; display: none; z-index: 3; }
-  .hnd::after { content: ''; position: absolute; inset: -12px; }
+  .hnd { position: absolute; left: 0; top: 0; width: 14px; height: 14px; background: var(--accent); border: 2px solid #fff; touch-action: none; pointer-events: none; display: none; z-index: 3; }
+  .hnd::after { content: ''; position: absolute; inset: -16px; }
   body.placing .hnd.on { display: block; pointer-events: auto; }
   .place-bar .btn { min-height: 44px; }
   #pbSize { display: flex; flex-direction: column; gap: 6px; }
@@ -360,7 +361,7 @@
     <div class="rows"><button class="row go" id="openLinks" type="button">Ссылки</button></div>
     <button class="btn primary" id="close" type="button">Готово</button>
 
-    <div class="version-text">v2.2.0</div>
+    <div class="version-text">v2.4.4</div>
   </div>
 </div>
 
@@ -641,7 +642,7 @@
   img2.addEventListener('load', onImgLoad);
   function panXable() { var b = box(), f = fitted(); return f.w * st.sx * st.z > b.width + 1; }
   function canDrag() { return !placing && pages.count > 1 && st.z <= 1.02 && !dragBusy && sheetWrap.hidden && linksWrap.hidden && confirmWrap.hidden; }
-  var nbTok = 0, pendingRefresh = false;
+  var nbTok = 0, pendingRefresh = false, pendingWork = false;
   function renderGhost(t) {
     layer2.textContent = '';
     var q = ps(t);
@@ -672,28 +673,46 @@
     el.style.transform = 'scale(' + pages.sx[t] + ',' + pages.sy[t] + ')';
     el.hidden = false; layer2.hidden = false;
     renderGhost(t);
-    el.style.visibility = 'hidden';
+    // если эта страница уже лежит в слое и загружена — не прячем (иначе при быстрых бросках мелькает чёрное)
+    var cb = blobCache[t], u0 = cb ? urlOf(cb) : null;
+    if (!(u0 && el.src === u0 && el.complete && el.naturalWidth)) el.style.visibility = 'hidden';
     getBlob(t).then(function (b) {
       if (tok !== nbTok) return;
-      var u = b ? URL.createObjectURL(b) : SAMPLE;
-      if (el._url) { try { URL.revokeObjectURL(el._url); } catch (e) {} }
+      var u = b ? urlOf(b) : SAMPLE;
       el._url = b ? u : null;
       if (el === img) currentUrl = el._url; // роль могла уже смениться
-      el.onload = function () { el.style.visibility = ''; };
+      if (el.src === u && el.complete && el.naturalWidth) { el.style.visibility = ''; return; }
+      el.onload = function () { if (el.decode) el.decode().then(function () { el.style.visibility = ''; }, function () { el.style.visibility = ''; }); else el.style.visibility = ''; };
       el.src = u;
+      if (el.complete && el.naturalWidth) el.style.visibility = ''; // уже в кэше — готово сразу
     });
   }
+  function fitW(el, sxv, W, H) {
+    var nw = el.naturalWidth, nh = el.naturalHeight;
+    if (!nw || !nh) return W;
+    return nw * Math.min(W / nw, H / nh) * sxv;
+  }
   function placeDrag(off) {
-    var W = box().width, tr = off + 'px 0px';
+    var W = (drag && drag.W) || box().width, dpr = window.devicePixelRatio || 1;
+    off = Math.round(off * dpr) / dpr; // ровно по физическим пикселям: без полос между фото
+    var tr = off + 'px 0px';
     img.style.translate = tr; layer.style.translate = tr;
     if (drag && drag.valid) {
-      var n = (off - drag.sign * W) + 'px 0px';
+      // у фото с другой пропорцией по бокам остаются пустые поля — на стыке из них получалась чёрная полоса.
+      // Пока страница едет, подвигаем соседа ближе на ширину этих полей, чтобы края фото касались друг друга.
+      var g = 0;
+      try {
+        var H = drag.H || W, dw0 = Math.min(W, fitW(img, st.sx, W, H)), dw1 = Math.min(W, fitW(img2, pages.sx[drag.target] || 1, W, H));
+        g = (W - dw0) / 2 + (W - dw1) / 2;
+      } catch (e) { g = 0; }
+      var r = g > 0 ? Math.min(1, Math.abs(off) / g) : 0;
+      var n = (off - drag.sign * (W - g * r - 1 / dpr)) + 'px 0px'; // и ещё внахлёст на 1 физический пиксель
       img2.style.translate = n; layer2.style.translate = n;
     }
   }
   function startDrag(e) {
     stopAnim(); stopInertia(); cancelPress(); loadTok++;
-    drag = { x0: tap.x, sx: tap.x, resumed: false, sign: 0, vx: 0, lx: e.clientX, lt: performance.now(), off: 0, valid: false, target: -1, raf: 0 };
+    drag = { W: box().width, H: box().height, x0: tap.x, sx: tap.x, resumed: false, sign: 0, vx: 0, lx: e.clientX, lt: performance.now(), off: 0, valid: false, target: -1, raf: 0 };
     tap.drag = true; tap.moved = true;
     moveDrag(e);
   }
@@ -703,17 +722,21 @@
     drag.lx = e.clientX; drag.lt = now;
     var sg = dx > 0 ? 1 : (dx < 0 ? -1 : drag.sign);
     if (sg && sg !== drag.sign) prepNeighbor(sg);
-    var W = box().width;
+    var W = drag.W;
     drag.off = drag.valid ? Math.max(-W, Math.min(W, dx)) : dx * 0.3;
     placeDrag(drag.off);
   }
-  function animDrag(from, to, ms, done) {
+  // v0 — скорость пальца в сторону нуля (px/мс): анимация стартует с ней же, поэтому нет рывка при отпускании
+  function animDrag(from, to, ms, done, v0) {
     dragBusy = true;
-    var t0 = performance.now();
+    var t0 = 0, rem = Math.abs(to - from) || 1;
+    var a = Math.max(0, Math.min(3, (v0 || 0) * ms / rem)); // не больше 3 — иначе кривая «перелетит»
     function step(t) {
       if (!drag || !dragBusy) return;
-      var k = Math.max(0, Math.min(1, (t - t0) / ms)), e = 1 - Math.pow(1 - k, 5); // как у Android: быстрый старт, мягкая остановка
-      drag.off = from + (to - from) * e;
+      if (!t0) t0 = t; // отсчёт с первого кадра: тяжёлая работа при смене страницы не съедает начало анимации
+      var k = Math.max(0, Math.min(1, (t - t0) / ms));
+      var p = (k * k * k - 2 * k * k + k) * a + (-2 * k * k * k + 3 * k * k);
+      drag.off = from + (to - from) * p;
       placeDrag(drag.off);
       if (k < 1) drag.raf = requestAnimationFrame(step); else done();
     }
@@ -725,7 +748,15 @@
     img.style.translate = ''; layer.style.translate = '';
     img2.hidden = true; layer2.hidden = true; img2.style.translate = ''; layer2.style.translate = '';
     img2.removeAttribute('src'); layer2.textContent = '';
-    if (img2._url) { try { URL.revokeObjectURL(img2._url); } catch (e) {} img2._url = null; }
+    img2._url = null;
+    if (pendingWork) { // всё тяжёлое (сохранение, плашки, подгрузка соседей) — только когда страница остановилась
+      pendingWork = false;
+      var i = pages.cur;
+      renderPages(); savePages();
+      try { document.getElementById('thumb').src = img.currentSrc || img.src; } catch (e) {}
+      if (pages.count > 1) toast('Страница ' + (i + 1) + ' из ' + pages.count);
+      warmNeighbors();
+    }
     if (pendingRefresh) { pendingRefresh = false; refreshLinks(); } // тяжёлая перерисовка ссылок только после остановки
   }
   // страница меняется сразу: роли двух слоёв меняются местами, поэтому её можно «поймать» пальцем на лету
@@ -736,11 +767,7 @@
     labelEls = [];
     pages.cur = i; st.sx = pages.sx[i]; st.sy = pages.sy[i]; st.z = 1; st.x = 0; st.y = 0;
     syncScaleUI(); apply();
-    mvPanel.hidden = true; renderPages(); savePages(); pendingRefresh = true;
-    try { document.getElementById('thumb').src = img.currentSrc || img.src; } catch (e) {}
-    if (pages.count > 1) toast('Страница ' + (i + 1) + ' из ' + pages.count);
-    if (i + 1 < pages.count) getBlob(i + 1);
-    if (i > 0) getBlob(i - 1);
+    mvPanel.hidden = true; pendingRefresh = true; pendingWork = true;
     d.sign = -d.sign; d.target = i + d.sign; d.valid = d.target >= 0 && d.target < pages.count; d.off = m;
   }
   function endDrag(cancel) {
@@ -755,8 +782,9 @@
     var commit = !cancel && d.valid && (fling || (s === d.sign && Math.abs(d.off) > W * 0.35));
     if (commit) commitDrag(d, W);
     var from = d.off, rem = Math.abs(from);
-    var ms = commit && fling ? Math.max(100, Math.min(200, rem / Math.max(Math.abs(v) * 0.9, 1))) : 100 + 90 * rem / W;
-    animDrag(from, 0, reduceMotion ? 1 : Math.round(ms), cleanupDrag);
+    var ms = commit ? 120 + 50 * rem / W : 100 + 40 * rem / W;
+    var vt = Math.max(0, v * (from > 0 ? -1 : 1));
+    animDrag(from, 0, reduceMotion ? 1 : Math.round(ms), cleanupDrag, vt);
   }
 
   stage.addEventListener('pointerdown', function (e) {
@@ -1097,15 +1125,31 @@
     '</svg>';
   var SAMPLE = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(SAMPLE_SVG);
 
+  // один и тот же blob всегда получает один и тот же адрес: браузер держит такое фото уже раскодированным
+  var urlMap = new WeakMap();
+  function urlOf(b) { var u = urlMap.get(b); if (!u) { u = URL.createObjectURL(b); urlMap.set(b, u); } return u; }
+  var warmImgs = {};
+  function warmNeighbors() { // заранее раскодировать соседние страницы, чтобы они не появлялись «с задержкой»
+    var c = pages.cur, keep = {};
+    [c - 1, c + 1].forEach(function (t) {
+      if (t < 0 || t >= pages.count) return;
+      keep[t] = 1;
+      getBlob(t).then(function (b) {
+        if (!b || warmImgs[t] && warmImgs[t]._b === b) return;
+        var w = new Image(); w._b = b; w.src = urlOf(b); warmImgs[t] = w;
+        if (w.decode) w.decode().catch(function () {});
+      });
+    });
+    Object.keys(warmImgs).forEach(function (k) { if (!keep[k]) delete warmImgs[k]; });
+  }
   var currentUrl = null;
   function showBlob(blob) {
-    if (currentUrl) { try { URL.revokeObjectURL(currentUrl); } catch (e) {} }
-    currentUrl = URL.createObjectURL(blob);
+    currentUrl = urlOf(blob);
     resetView();
     img.src = currentUrl;
   }
   function showSample() {
-    if (currentUrl) { try { URL.revokeObjectURL(currentUrl); } catch (e) {} currentUrl = null; }
+    currentUrl = null;
     resetView();
     img.src = SAMPLE;
   }
@@ -1242,7 +1286,7 @@
     var tok = ++loadTok;
     var dir = (user && i !== pages.cur && sheetWrap.hidden) ? (i > pages.cur ? 1 : -1) : 0;
     var outP = slideOut(dir);
-    Promise.all([getBlob(i), outP]).then(function (r) {
+    return Promise.all([getBlob(i), outP]).then(function (r) {
       if (tok !== loadTok) return;
       var blob = r[0];
       pages.cur = i;
@@ -1257,8 +1301,7 @@
         slideIn(-dir);
         if (sheetWrap.hidden && pages.count > 1) toast('Страница ' + (i + 1) + ' из ' + pages.count);
       }
-      if (i + 1 < pages.count) getBlob(i + 1);
-      if (i > 0) getBlob(i - 1);
+      warmNeighbors();
     });
   }
   function addPage() {
@@ -1651,12 +1694,15 @@
       e.stopPropagation(); e.preventDefault();
       try { h.setPointerCapture(e.pointerId); } catch (er) {}
       var g = geom(el);
-      drag = { el: el, it: el._it, ox: g.px - h._c[0] * g.hw, oy: g.py - h._c[1] * g.hh, id: e.pointerId };
+      var bb = box();
+      // gx/gy: на сколько палец смещён от угла в момент касания, чтобы угол не прыгал к пальцу
+      drag = { el: el, it: el._it, ox: g.px - h._c[0] * g.hw, oy: g.py - h._c[1] * g.hh, id: e.pointerId,
+        gx: (e.clientX - bb.left) - (g.px + h._c[0] * g.hw), gy: (e.clientY - bb.top) - (g.py + h._c[1] * g.hh) };
     });
     h.addEventListener('pointermove', function (e) {
       if (!drag || e.pointerId !== drag.id) return;
       var b = box(), z = st.z, it = drag.it, el = drag.el;
-      var X = e.clientX - b.left, Y = e.clientY - b.top;
+      var X = e.clientX - b.left - drag.gx, Y = e.clientY - b.top - drag.gy;
       var sgx = X >= drag.ox ? 1 : -1, sgy = Y >= drag.oy ? 1 : -1;
       it.s = num(Math.abs(X - drag.ox) / z / el._w0, 0.1, 8, it.s);
       it.hs = num(Math.abs(Y - drag.oy) / z / el._h0, 0.1, 8, it.hs);
@@ -2101,9 +2147,50 @@
   remeasure();
   try { if (window.ResizeObserver) new ResizeObserver(function () { remeasure(); apply(); }).observe(stage); } catch (e) {}
   showSample();
-  loadLinks();
-  renderPages();
-  loadSettings().catch(function () {}).then(function () { if (!loadTok) goPage(pages.cur, false); });
+  var bootImg = document.getElementById('photo');
+  bootImg.style.opacity = '0'; // пока не загрузилась нужная страница, не показываем заглушку первой
+  function bootDone() { bootImg.style.opacity = ''; }
+  setTimeout(bootDone, 2500);
+  loadSettings().catch(function () {}).then(function () {
+    renderPages(); loadLinks(); // сначала узнаём, на какой мы странице, и только потом рисуем её ссылки
+    var pr = loadTok ? null : goPage(pages.cur, false);
+    if (pr) pr.then(function () { setTimeout(bootDone, 60); }, bootDone); else bootDone();
+  });
+  // при выходе из приложения сразу сохраняем страницу и прячем FPS
+  function leave() { try { savePages(); } catch (e) {} fpsOff(); }
+  document.addEventListener('visibilitychange', function () { if (document.hidden) leave(); });
+  window.addEventListener('pagehide', leave);
+  // --- скрытый счётчик FPS: два нажатия на версию внизу настроек ---
+  var fpsEl = null, fpsRaf = 0;
+  function fpsOff() {
+    if (fpsRaf) cancelAnimationFrame(fpsRaf); fpsRaf = 0;
+    if (fpsEl) { fpsEl.remove(); fpsEl = null; }
+  }
+  function fpsOn() {
+    fpsEl = document.createElement('div');
+    fpsEl.style.cssText = 'position:fixed;left:8px;top:calc(env(safe-area-inset-top,0px) + 6px);z-index:99999;padding:3px 8px;border-radius:8px;background:rgba(0,0,0,.65);color:#9f9;font:12px/1.3 monospace;pointer-events:none';
+    document.body.appendChild(fpsEl);
+    var n = 0, worst = 0, prev = 0, t0 = 0;
+    (function tick(t) {
+      if (!fpsEl) return;
+      if (!t0) t0 = t;
+      if (prev) worst = Math.max(worst, t - prev);
+      prev = t; n++;
+      if (t - t0 >= 500) {
+        fpsEl.textContent = Math.round(n * 1000 / (t - t0)) + ' FPS · худший кадр ' + Math.round(worst) + ' мс';
+        n = 0; worst = 0; t0 = t;
+      }
+      fpsRaf = requestAnimationFrame(tick);
+    })(0);
+  }
+  (function () {
+    var v = document.querySelector('.version-text'), last = 0;
+    if (!v) return;
+    v.addEventListener('click', function () {
+      var now = Date.now();
+      if (now - last < 600) { last = 0; if (fpsEl) fpsOff(); else fpsOn(); } else last = now;
+    });
+  })();
 
   if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
     window.addEventListener('load', function () {
