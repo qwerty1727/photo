@@ -222,6 +222,9 @@
   .place-bar .btn { min-height: 44px; }
   #pbSize { display: flex; flex-direction: column; gap: 6px; }
   #pbSize[hidden] { display: none; }
+  #pbForm { display: flex; flex-direction: column; gap: 8px; }
+  #pbForm[hidden] { display: none; }
+  .pb-ft { font-weight: 600; }
   .pb-size label { min-width: 5.5em; }
   .pb-size { display: flex; align-items: center; gap: 10px; }
   .pb-size input { flex: 1; accent-color: var(--accent); }
@@ -361,7 +364,7 @@
     <div class="rows"><button class="row go" id="openLinks" type="button">Ссылки</button></div>
     <button class="btn primary" id="close" type="button">Готово</button>
 
-    <div class="version-text">v2.4.4</div>
+    <div class="version-text">v2.5.0</div>
   </div>
 </div>
 
@@ -452,18 +455,21 @@
 
 <div class="place-bar" id="placeBar" hidden>
   <div class="pb-grip" id="pbGrip">⠿ потяни здесь, чтобы переместить панель</div>
-  <div id="pbHint">Перетаскивай ссылки. Нажми на ссылку и тяни за уголки, чтобы менять ширину и высоту. Фото можно приближать. Число рядом с ползунком можно нажать и вписать вручную.</div>
+  <div id="pbHint">Перетаскивай ссылки. Нажми на ссылку и тяни за уголки, чтобы менять ширину и высоту. Фото можно приближать. Число рядом с ползунком можно нажать и вписать вручную. Кнопка «Новая ссылка» добавляет ссылку прямо здесь, режим при этом не закрывается.</div>
   <div id="pbSize" hidden>
     <div class="pb-size"><label for="lkSize">Ширина</label><input type="range" id="lkSize" min="0.1" max="4" step="0.01" value="1"><span id="lkSizeVal">1.00×</span></div>
     <div class="pb-size"><label for="lkH">Высота</label><input type="range" id="lkH" min="0.1" max="4" step="0.01" value="1"><span id="lkHVal">1.00×</span></div>
     <div class="pb-size"><label for="lkR">Скругление</label><input type="range" id="lkR" min="0" max="1" step="0.01" value="0"><span id="lkRVal">0%</span></div>
     <div class="lrow"><button class="btn" id="pbEdit" type="button">Название и адрес</button><button class="btn" id="pbDel" type="button">Удалить ссылку</button></div>
-    <div id="pbForm" hidden style="display:flex;flex-direction:column;gap:8px">
-      <input type="text" id="pbText" placeholder="Текст" maxlength="40">
-      <input type="url" id="pbUrl" placeholder="Адрес" inputmode="url" autocapitalize="off" autocorrect="off" spellcheck="false">
-      <div class="lerr" id="pbErr"></div>
-      <div class="lrow"><button class="btn primary" id="pbFormSave" type="button">Сохранить</button><button class="btn" id="pbFormCancel" type="button">Отмена</button></div>
-    </div>
+  </div>
+  <button class="btn" id="pbNew" type="button">＋ Новая ссылка</button>
+  <div id="pbForm" hidden>
+    <div id="pbFormTitle" class="pb-ft">Новая ссылка</div>
+    <input type="url" id="pbUrl" placeholder="Адрес, например gmail.com" inputmode="url" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="done">
+    <input type="text" id="pbText" placeholder="Название (если пусто — возьму из адреса)" maxlength="40" enterkeyhint="done">
+    <div class="lerr" id="pbErr"></div>
+    <div class="lrow"><button class="btn primary" id="pbFormSave" type="button">Добавить</button><button class="btn" id="pbFormCancel" type="button">Отмена</button></div>
+    <button class="btn" id="pbFormMore" type="button">Добавить и создать следующую</button>
   </div>
   <button class="btn primary" id="placeDone" type="button">Закрепить</button>
 </div>
@@ -1585,6 +1591,7 @@
 
   function selectLink(id) {
     selId = id;
+    if (pbMode === 'edit' && typeof pbForm !== 'undefined' && pbForm) pbForm.hidden = true; // форма правки относилась к прошлой ссылке
     labelEls.forEach(function (el) { el.classList.toggle('sel', el._it.id === id); });
     syncSize();
     posHandles();
@@ -1599,7 +1606,7 @@
     links.items.forEach(function (x) { if (x.id === selId) it = x; });
     pbSize.hidden = !(placing && it);
     document.getElementById('pbHint').hidden = !!(placing && it);
-    if (!it && typeof pbForm !== 'undefined' && pbForm) pbForm.hidden = true;
+    if (!it && typeof pbForm !== 'undefined' && pbForm && pbMode === 'edit') pbForm.hidden = true;
     if (it) {
       lkSize.value = it.s; lkSizeVal.textContent = it.s.toFixed(2) + '×';
       lkH.value = it.hs; lkHVal.textContent = it.hs.toFixed(2) + '×';
@@ -1746,18 +1753,47 @@
     pbGrip.addEventListener('pointercancel', up);
   })();
   var pbForm = document.getElementById('pbForm'), pbText = document.getElementById('pbText'), pbUrl = document.getElementById('pbUrl'), pbErr = document.getElementById('pbErr');
-  document.getElementById('pbEdit').addEventListener('click', function () {
-    var it = selItem(); if (!it) return;
-    pbText.value = it.text; pbUrl.value = it.url; pbErr.textContent = ''; pbForm.hidden = false;
-  });
+  var pbMode = 'edit', pbTitle = document.getElementById('pbFormTitle'), pbSaveBtn = document.getElementById('pbFormSave'), pbMore = document.getElementById('pbFormMore');
+  function pbOpen(mode) {
+    pbMode = mode; pbErr.textContent = '';
+    var it = mode === 'edit' ? selItem() : null;
+    if (mode === 'edit' && !it) return;
+    pbText.value = it ? it.text : ''; pbUrl.value = it ? it.url : '';
+    pbTitle.textContent = it ? 'Название и адрес' : 'Новая ссылка';
+    pbSaveBtn.textContent = it ? 'Сохранить' : 'Добавить';
+    pbMore.hidden = !!it;
+    pbForm.hidden = false;
+    try { pbForm.scrollIntoView({ block: 'nearest' }); } catch (e) {}
+    setTimeout(function () { try { pbUrl.focus(); } catch (e) {} }, 30);
+  }
+  document.getElementById('pbEdit').addEventListener('click', function () { pbOpen('edit'); });
+  document.getElementById('pbNew').addEventListener('click', function () { pbOpen('new'); });
   document.getElementById('pbFormCancel').addEventListener('click', function () { pbForm.hidden = true; });
-  document.getElementById('pbFormSave').addEventListener('click', function () {
-    var it = selItem(); if (!it) return;
+  // сохранить; again = true: форма остаётся открытой для следующей ссылки
+  function pbCommit(again) {
     var url = pbUrl.value.trim();
     if (!normUrl(url)) { pbErr.textContent = 'Проверь адрес: например, gmail.com'; return; }
-    it.text = pbText.value.trim() || hostOf(url); it.url = url;
-    saveLinks(); pbForm.hidden = true; renderLabels(); syncSize();
-  });
+    var text = pbText.value.trim() || hostOf(url);
+    if (pbMode === 'edit') {
+      var it = selItem(); if (!it) return;
+      it.text = text; it.url = url;
+      saveLinks(); pbForm.hidden = true; renderLabels(); syncSize();
+      return;
+    }
+    var n = pageItems().length;
+    if (n >= LINK_MAX) { pbErr.textContent = 'Слишком много ссылок на странице'; return; }
+    var item = { id: uid(), text: text, url: url, u: 0, v: -0.35 + (n % 10) * 0.08, s: 1, hs: 1, r: 0, p: pages.cur };
+    links.items.push(item);
+    saveLinks(); renderLabels();
+    selectLink(item.id);
+    toast('Добавлено — перетащи на место');
+    if (again) { pbText.value = ''; pbUrl.value = ''; pbErr.textContent = ''; pbForm.hidden = false; setTimeout(function () { try { pbUrl.focus(); } catch (e) {} }, 30); }
+    else pbForm.hidden = true;
+  }
+  pbSaveBtn.addEventListener('click', function () { pbCommit(false); });
+  pbMore.addEventListener('click', function () { pbCommit(true); });
+  pbUrl.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); pbCommit(false); } });
+  pbText.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); pbCommit(false); } });
   document.getElementById('pbDel').addEventListener('click', function () {
     var it = selItem(); if (!it) return;
     askConfirm({
@@ -1825,7 +1861,7 @@
     lkPkg.value = links.pkg || '';
     renderModes();
     lkEnable.textContent = ps().enabled ? 'Остановить ссылки этой страницы' : 'Включить ссылки этой страницы';
-    var canPlace = pn && ps().enabled;
+    var canPlace = ps().enabled;
     lkPlace.disabled = !canPlace;
     lkPlace.style.opacity = canPlace ? '' : '0.45';
   }
@@ -1924,7 +1960,7 @@
   document.getElementById('linksBack').addEventListener('click', closeLinksScreen);
 
   function startPlacing() {
-    if (!pageItems().length || !ps().enabled) return;
+    if (!ps().enabled) return;
     closeLinksScreen();
     closeSheet();
     cancelPress();
@@ -1942,6 +1978,7 @@
     placeBar.classList.remove('top');
     document.body.classList.remove('placing');
     placeBar.hidden = true;
+    if (typeof pbForm !== 'undefined' && pbForm) pbForm.hidden = true;
     saveLinks();
     renderLabels();
   }
