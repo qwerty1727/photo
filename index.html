@@ -208,7 +208,16 @@
     background: rgba(33, 29, 25, 0.95); border: 1px solid var(--line);
     font-size: 14px;
   }
+  .place-bar { max-height: calc(100% - 24px); overflow-y: auto; }
+  .pb-grip { text-align: center; padding: 8px 0; margin: -4px 0 0; color: var(--muted); font-size: 12px; letter-spacing: 0.04em; border-bottom: 1px solid var(--line); cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none; }
+  .place-bar input[type=text], .place-bar input[type=url] { font: inherit; font-size: 16px; color: var(--fg); background: var(--bg); border: 1px solid var(--line); padding: 10px; width: 100%; }
+  .place-bar.top { bottom: auto; top: max(12px, env(safe-area-inset-top)); }
   .place-bar[hidden] { display: none; }
+  .numin { width: 5.2em; font: inherit; color: var(--fg); background: var(--bg); border: 1px solid var(--accent); padding: 2px 6px; text-align: right; }
+  .editable { cursor: pointer; text-decoration: underline dotted; text-underline-offset: 3px; }
+  .hnd { position: absolute; left: 0; top: 0; width: 26px; height: 26px; background: var(--accent); border: 2px solid #fff; touch-action: none; pointer-events: none; display: none; z-index: 3; }
+  .hnd::after { content: ''; position: absolute; inset: -12px; }
+  body.placing .hnd.on { display: block; pointer-events: auto; }
   .place-bar .btn { min-height: 44px; }
   #pbSize { display: flex; flex-direction: column; gap: 6px; }
   #pbSize[hidden] { display: none; }
@@ -275,6 +284,10 @@
   .pg { min-width: 44px; height: 44px; padding: 0 10px; border: 1px solid var(--line); border-radius: 0; background: transparent; color: var(--fg); font: inherit; cursor: pointer; }
   .pg.on { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
   #mvList { max-height: 40vh; overflow-y: auto; }
+  .undo-bar { position: absolute; left: 50%; transform: translateX(-50%); bottom: max(16px, env(safe-area-inset-bottom)); z-index: 10; width: calc(100% - 24px); max-width: 360px; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 8px 8px 14px; background: var(--surface); border: 1px solid var(--accent); color: var(--fg); font-size: 14px; }
+  .undo-bar[hidden] { display: none; }
+  .undo-bar .sq-btn { flex: none; min-height: 38px; padding: 0 16px; background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
+  .lform textarea { font: inherit; font-size: 16px; color: var(--fg); background: var(--bg); border: 1px solid var(--line); padding: 12px; width: 100%; min-height: 150px; }
   .pg-toast { position: absolute; left: 50%; top: max(14px, env(safe-area-inset-top)); transform: translateX(-50%); z-index: 8; padding: 8px 14px; background: rgba(12, 14, 17, 0.8); border: 1px solid var(--line); color: var(--fg); font-size: 14px; pointer-events: none; }
   .pg-toast[hidden] { display: none; }
   .confirm-wrap { position: absolute; inset: 0; z-index: 9; background: rgba(0, 0, 0, 0.6); display: flex; align-items: center; justify-content: center; padding: 16px; }
@@ -298,9 +311,11 @@
 
 <div class="stage" id="stage">
   <img class="photo" id="photo" alt="Фото" draggable="false">
+  <img class="photo" id="photo2" alt="" draggable="false" hidden>
 </div>
 
 <div class="links-layer" id="linksLayer"></div>
+<div class="links-layer" id="linksLayer2" hidden></div>
 
 <div class="ui">
   <button class="gear" id="gear" type="button" aria-label="Настройки">
@@ -323,11 +338,11 @@
     <label class="photo-row" for="file"><img id="thumb" alt=""><span>Выбрать новое фото</span></label>
     <div class="setting-row">
       <label>Ширина <span id="sxVal">1.00×</span></label>
-      <input type="range" id="scaleX" min="0.5" max="3" step="0.05" value="1">
+      <input type="range" id="scaleX" min="0.5" max="3" step="0.01" value="1">
     </div>
     <div class="setting-row">
       <label>Высота <span id="syVal">1.00×</span></label>
-      <input type="range" id="scaleY" min="0.5" max="3" step="0.05" value="1">
+      <input type="range" id="scaleY" min="0.5" max="3" step="0.01" value="1">
     </div>
     <div class="rows">
       <button class="row" id="resetTransform" type="button">Сбросить размер и положение</button>
@@ -340,12 +355,12 @@
     <div class="pgrow" id="themeRow"><button class="pg" type="button" data-t="warm">Тёплое</button><button class="pg" type="button" data-t="dark">Тёмное</button></div>
     <div class="setting-row">
       <label>Прозрачность кнопки <span id="opacityVal">100%</span></label>
-      <input type="range" id="gearOpacity" min="0.1" max="1" step="0.05" value="1">
+      <input type="range" id="gearOpacity" min="0.1" max="1" step="0.01" value="1">
     </div>
     <div class="rows"><button class="row go" id="openLinks" type="button">Ссылки</button></div>
     <button class="btn primary" id="close" type="button">Готово</button>
 
-    <div class="version-text">v1.9.3</div>
+    <div class="version-text">v2.2.0</div>
   </div>
 </div>
 
@@ -359,6 +374,7 @@
       <button class="btn primary" id="lkAdd" type="button">Добавить</button>
       <button class="btn" id="lkPlace" type="button">Расположить</button>
     </div>
+    <button class="btn" id="lkBulk" type="button">Добавить списком (много за раз)</button>
     <button class="btn" id="lkMove" type="button" hidden>Перенести / копировать на другую страницу</button>
     <div class="lform" id="mvPanel" hidden>
       <div class="note" style="margin:0">Отметь ссылки и выбери страницу. Размер и место сохранятся.</div>
@@ -372,9 +388,31 @@
       </div>
       <button class="btn" id="mvCancel" type="button">Отмена</button>
     </div>
-    <label class="lchk"><input type="checkbox" id="lkShow" checked> Показывать ссылки (скрытые всё равно работают)</label>
-    <button class="btn" id="lkEnable" type="button">Остановить ссылки</button>
+    <div class="lform" id="bulkPanel" hidden>
+      <div class="note" style="margin:0">Каждая строка: название и адрес, например «Почта gmail.com». Можно только адрес.</div>
+      <textarea id="bulkText" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="Почта gmail.com&#10;Ютуб youtube.com"></textarea>
+      <div class="lerr" id="bulkErr"></div>
+      <div class="lrow">
+        <button class="btn primary" id="bulkAdd" type="button">Добавить</button>
+        <button class="btn" id="bulkCancel" type="button">Отмена</button>
+      </div>
+    </div>
+    <label class="lchk"><input type="checkbox" id="lkShow" checked> Показывать ссылки этой страницы (скрытые всё равно работают)</label>
+    <button class="btn" id="lkEnable" type="button">Остановить ссылки этой страницы</button>
     <button class="btn" id="lkStrip" type="button">Убрать https:// у всех ссылок</button>
+    <div class="grp"><span>Копия ссылок</span></div>
+    <div class="lchk" id="bkFolderRow" hidden>Папка для копий: <b id="bkFolder">не выбрана</b></div>
+    <button class="btn" id="bkPick" type="button" hidden>Выбрать папку для копий</button>
+    <input type="text" id="bkName" placeholder="Имя файла" autocapitalize="off" autocorrect="off" spellcheck="false" style="font:inherit;font-size:16px;color:var(--fg);background:var(--bg);border:1px solid var(--line);padding:12px;width:100%">
+    <button class="btn primary" id="bkSave" type="button">Сохранить ссылки в файл</button>
+    <button class="btn" id="bkLoad" type="button">Загрузить ссылки из файла</button>
+    <input type="file" id="bkFile" class="file-hidden" accept=".json,application/json,text/plain">
+    <div class="note" id="bkMsg" style="margin:0"></div>
+    <button class="btn" id="lkSnaps" type="button">Автокопии: вернуть прежнее состояние</button>
+    <div class="lform" id="snapPanel" hidden>
+      <div class="modelist" id="snapList"></div>
+      <button class="btn" id="snapClose" type="button">Закрыть</button>
+    </div>
     <div class="lchk" style="flex-direction:column;align-items:stretch;gap:6px">Способ открытия ссылок
       <div class="modelist" id="lkModeList"></div>
     </div>
@@ -408,14 +446,23 @@
   </div>
 </div>
 
+<div class="undo-bar" id="undoBar" hidden><span id="undoText"></span><button class="sq-btn" id="undoBtn" type="button">Вернуть</button></div>
 <div class="pg-toast" id="pgToast" hidden></div>
 
 <div class="place-bar" id="placeBar" hidden>
-  <div id="pbHint">Перетаскивай ссылки. Нажми на ссылку, чтобы менять ширину, высоту и скругление (или щипни её двумя пальцами). Фото можно приближать.</div>
+  <div class="pb-grip" id="pbGrip">⠿ потяни здесь, чтобы переместить панель</div>
+  <div id="pbHint">Перетаскивай ссылки. Нажми на ссылку и тяни за уголки, чтобы менять ширину и высоту. Фото можно приближать. Число рядом с ползунком можно нажать и вписать вручную.</div>
   <div id="pbSize" hidden>
-    <div class="pb-size"><label for="lkSize">Ширина</label><input type="range" id="lkSize" min="0.4" max="4" step="0.05" value="1"><span id="lkSizeVal">1.00×</span></div>
-    <div class="pb-size"><label for="lkH">Высота</label><input type="range" id="lkH" min="0.4" max="4" step="0.05" value="1"><span id="lkHVal">1.00×</span></div>
-    <div class="pb-size"><label for="lkR">Скругление</label><input type="range" id="lkR" min="0" max="1" step="0.05" value="0"><span id="lkRVal">0%</span></div>
+    <div class="pb-size"><label for="lkSize">Ширина</label><input type="range" id="lkSize" min="0.1" max="4" step="0.01" value="1"><span id="lkSizeVal">1.00×</span></div>
+    <div class="pb-size"><label for="lkH">Высота</label><input type="range" id="lkH" min="0.1" max="4" step="0.01" value="1"><span id="lkHVal">1.00×</span></div>
+    <div class="pb-size"><label for="lkR">Скругление</label><input type="range" id="lkR" min="0" max="1" step="0.01" value="0"><span id="lkRVal">0%</span></div>
+    <div class="lrow"><button class="btn" id="pbEdit" type="button">Название и адрес</button><button class="btn" id="pbDel" type="button">Удалить ссылку</button></div>
+    <div id="pbForm" hidden style="display:flex;flex-direction:column;gap:8px">
+      <input type="text" id="pbText" placeholder="Текст" maxlength="40">
+      <input type="url" id="pbUrl" placeholder="Адрес" inputmode="url" autocapitalize="off" autocorrect="off" spellcheck="false">
+      <div class="lerr" id="pbErr"></div>
+      <div class="lrow"><button class="btn primary" id="pbFormSave" type="button">Сохранить</button><button class="btn" id="pbFormCancel" type="button">Отмена</button></div>
+    </div>
   </div>
   <button class="btn primary" id="placeDone" type="button">Закрепить</button>
 </div>
@@ -445,7 +492,7 @@
   var reduceMotion = false;
   try { reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) {}
 
-  function clampS(v) { return Math.min(3, Math.max(0.5, v)); }
+  function clampS(v) { return Math.min(6, Math.max(0.1, v)); }
   function clampZ(v) { return Math.min(8, Math.max(1, v)); }
 
   var bx = { left: 0, top: 0, width: 0, height: 0 };
@@ -569,7 +616,8 @@
     if (Math.abs(dx) < 55 || Math.abs(dx) < 1.2 * Math.abs(dy)) return false;
     var b = box(), f = fitted();
     // если растянутое фото ещё можно двигать вбок, листаем только резким броском
-    if (f.w * st.sx * st.z > b.width + 1 && (dt > 350 || Math.abs(dx) / dt < 0.5)) return false;
+    if (!(f.w * st.sx * st.z > b.width + 1)) return false;
+    if (dt > 350 || Math.abs(dx) / dt < 0.5) return false;
     var to = pages.cur + (dx > 0 ? 1 : -1);
     if (to < 0 || to >= pages.count) return false;
     goPage(to, true);
@@ -587,7 +635,142 @@
     };
   }
 
+  // ---------- Листание страниц пальцем, как в галерее ----------
+  var img2 = document.getElementById('photo2'), layer2 = document.getElementById('linksLayer2');
+  var drag = null, dragBusy = false;
+  img2.addEventListener('load', onImgLoad);
+  function panXable() { var b = box(), f = fitted(); return f.w * st.sx * st.z > b.width + 1; }
+  function canDrag() { return !placing && pages.count > 1 && st.z <= 1.02 && !dragBusy && sheetWrap.hidden && linksWrap.hidden && confirmWrap.hidden; }
+  var nbTok = 0, pendingRefresh = false;
+  function renderGhost(t) {
+    layer2.textContent = '';
+    var q = ps(t);
+    if (!q.enabled || !q.show) return;
+    measure();
+    var ex = pages.sx[t], ey = pages.sy[t], els = [];
+    links.items.forEach(function (it) {
+      if (it.p !== t) return;
+      var el = document.createElement('div'); el.className = 'link-label';
+      var f = document.createElement('span'); f.className = 'fill';
+      var tt = document.createElement('span'); tt.className = 't'; tt.textContent = it.text;
+      el.appendChild(f); el.appendChild(tt);
+      el._it = it; layer2.appendChild(el); els.push(el);
+    });
+    els.forEach(function (el) { el._w0 = el.offsetWidth; el._h0 = el.offsetHeight; }); // один пересчёт на все метки
+    els.forEach(function (el) {
+      applyShape(el);
+      var it = el._it, px = LW / 2 + it.u * LW * ex, py = LH / 2 + it.v * LH * ey;
+      el.style.transform = 'translate(' + px.toFixed(2) + 'px,' + py.toFixed(2) + 'px) translate(-50%,-50%) scale(1)';
+    });
+  }
+  function prepNeighbor(sign) {
+    var t = pages.cur + (sign > 0 ? 1 : -1);
+    drag.sign = sign; drag.target = t; drag.valid = t >= 0 && t < pages.count;
+    var tok = ++nbTok;
+    if (!drag.valid) { img2.hidden = true; layer2.hidden = true; return; }
+    var el = img2;
+    el.style.transform = 'scale(' + pages.sx[t] + ',' + pages.sy[t] + ')';
+    el.hidden = false; layer2.hidden = false;
+    renderGhost(t);
+    el.style.visibility = 'hidden';
+    getBlob(t).then(function (b) {
+      if (tok !== nbTok) return;
+      var u = b ? URL.createObjectURL(b) : SAMPLE;
+      if (el._url) { try { URL.revokeObjectURL(el._url); } catch (e) {} }
+      el._url = b ? u : null;
+      if (el === img) currentUrl = el._url; // роль могла уже смениться
+      el.onload = function () { el.style.visibility = ''; };
+      el.src = u;
+    });
+  }
+  function placeDrag(off) {
+    var W = box().width, tr = off + 'px 0px';
+    img.style.translate = tr; layer.style.translate = tr;
+    if (drag && drag.valid) {
+      var n = (off - drag.sign * W) + 'px 0px';
+      img2.style.translate = n; layer2.style.translate = n;
+    }
+  }
+  function startDrag(e) {
+    stopAnim(); stopInertia(); cancelPress(); loadTok++;
+    drag = { x0: tap.x, sx: tap.x, resumed: false, sign: 0, vx: 0, lx: e.clientX, lt: performance.now(), off: 0, valid: false, target: -1, raf: 0 };
+    tap.drag = true; tap.moved = true;
+    moveDrag(e);
+  }
+  function moveDrag(e) {
+    var dx = e.clientX - drag.x0, now = performance.now(), dt = Math.max(1, now - drag.lt);
+    drag.vx = 0.7 * ((e.clientX - drag.lx) / dt) + 0.3 * drag.vx;
+    drag.lx = e.clientX; drag.lt = now;
+    var sg = dx > 0 ? 1 : (dx < 0 ? -1 : drag.sign);
+    if (sg && sg !== drag.sign) prepNeighbor(sg);
+    var W = box().width;
+    drag.off = drag.valid ? Math.max(-W, Math.min(W, dx)) : dx * 0.3;
+    placeDrag(drag.off);
+  }
+  function animDrag(from, to, ms, done) {
+    dragBusy = true;
+    var t0 = performance.now();
+    function step(t) {
+      if (!drag || !dragBusy) return;
+      var k = Math.max(0, Math.min(1, (t - t0) / ms)), e = 1 - Math.pow(1 - k, 5); // как у Android: быстрый старт, мягкая остановка
+      drag.off = from + (to - from) * e;
+      placeDrag(drag.off);
+      if (k < 1) drag.raf = requestAnimationFrame(step); else done();
+    }
+    drag.raf = requestAnimationFrame(step);
+  }
+  function cleanupDrag() {
+    if (!drag) { dragBusy = false; return; }
+    drag = null; dragBusy = false; nbTok++;
+    img.style.translate = ''; layer.style.translate = '';
+    img2.hidden = true; layer2.hidden = true; img2.style.translate = ''; layer2.style.translate = '';
+    img2.removeAttribute('src'); layer2.textContent = '';
+    if (img2._url) { try { URL.revokeObjectURL(img2._url); } catch (e) {} img2._url = null; }
+    if (pendingRefresh) { pendingRefresh = false; refreshLinks(); } // тяжёлая перерисовка ссылок только после остановки
+  }
+  // страница меняется сразу: роли двух слоёв меняются местами, поэтому её можно «поймать» пальцем на лету
+  function commitDrag(d, W) {
+    var i = d.target, m = d.off - d.sign * W, tgtUrl = img2._url || null, oldUrl = currentUrl;
+    var ti = img, tl = layer; img = img2; layer = layer2; img2 = ti; layer2 = tl;
+    currentUrl = tgtUrl; img2._url = oldUrl;
+    labelEls = [];
+    pages.cur = i; st.sx = pages.sx[i]; st.sy = pages.sy[i]; st.z = 1; st.x = 0; st.y = 0;
+    syncScaleUI(); apply();
+    mvPanel.hidden = true; renderPages(); savePages(); pendingRefresh = true;
+    try { document.getElementById('thumb').src = img.currentSrc || img.src; } catch (e) {}
+    if (pages.count > 1) toast('Страница ' + (i + 1) + ' из ' + pages.count);
+    if (i + 1 < pages.count) getBlob(i + 1);
+    if (i > 0) getBlob(i - 1);
+    d.sign = -d.sign; d.target = i + d.sign; d.valid = d.target >= 0 && d.target < pages.count; d.off = m;
+  }
+  function endDrag(cancel) {
+    var d = drag;
+    if (!d || dragBusy) return;
+    var W = box().width, s = d.off > 0 ? 1 : -1, v = d.vx;
+    // как в Android ViewPager: короткий быстрый бросок (от ~24px и ~0,3 px/мс) листает, иначе нужно протянуть больше трети экрана
+    var fd = v > 0 ? 1 : -1, flingRaw = Math.abs(d.lx - d.sx) > 24 && Math.abs(v) > 0.3;
+    // страницу поймали на лету: каждый новый бросок листает ещё на одну в сторону броска
+    if (!cancel && d.resumed && flingRaw && fd !== d.sign) prepNeighbor(fd);
+    var fling = d.valid && flingRaw && fd === d.sign && (d.resumed || (s === d.sign && Math.abs(d.off) > 24));
+    var commit = !cancel && d.valid && (fling || (s === d.sign && Math.abs(d.off) > W * 0.35));
+    if (commit) commitDrag(d, W);
+    var from = d.off, rem = Math.abs(from);
+    var ms = commit && fling ? Math.max(100, Math.min(200, rem / Math.max(Math.abs(v) * 0.9, 1))) : 100 + 90 * rem / W;
+    animDrag(from, 0, reduceMotion ? 1 : Math.round(ms), cleanupDrag);
+  }
+
   stage.addEventListener('pointerdown', function (e) {
+    if (dragBusy) {
+      if (!drag) { dragBusy = false; }
+      else {
+        cancelAnimationFrame(drag.raf); dragBusy = false;
+        try { stage.setPointerCapture(e.pointerId); } catch (err) {}
+        ptrs[e.pointerId] = rel(e); last = rel(e);
+        tap = { t: Date.now(), x: e.clientX, y: e.clientY, moved: true, multi: false, z0: 1, drag: true };
+        drag.x0 = e.clientX - drag.off; drag.sx = e.clientX; drag.resumed = true; drag.vx = 0; drag.lx = e.clientX; drag.lt = performance.now();
+        return;
+      }
+    }
     stopInertia();
     vel.x = 0;
     vel.y = 0;
@@ -599,6 +782,7 @@
       tap = { t: Date.now(), x: e.clientX, y: e.clientY, moved: false, multi: false, z0: st.z };
     } else {
       if (tap) tap.multi = true;
+      if (drag) { tap.drag = false; endDrag(true); }
       if (count() === 2) { stopAnim(); startPinch(); }
     }
   });
@@ -609,6 +793,13 @@
     ptrs[e.pointerId] = p;
     if (tap && Math.hypot(e.clientX - tap.x, e.clientY - tap.y) > 8) tap.moved = true;
     if (tap && tap.swiped) return;
+    if (tap && !tap.multi && !drag && !tap.nodrag && !dragBusy && count() === 1) {
+      var ddx = e.clientX - tap.x, ddy = e.clientY - tap.y;
+      if (Math.hypot(ddx, ddy) > 10) {
+        if (canDrag() && tap.z0 <= 1.02 && !panXable() && Math.abs(ddx) > 1.2 * Math.abs(ddy)) startDrag(e); else tap.nodrag = true;
+      }
+    }
+    if (drag) { if (tap && tap.drag) moveDrag(e); return; }
     if (tap && count() === 1 && !tap.multi && trySwipe(e, tap)) { tap.swiped = true; return; }
     if (animRaf) {
       if (count() === 1 && tap && !tap.moved) return; // просто касание, анимация идёт дальше
@@ -647,6 +838,7 @@
       last = ptrs[left[0]];
     } else if (left.length === 0) {
       last = null;
+      if (tap && tap.drag) { tap = null; endDrag(false); return; }
       if (tap && tap.swiped) { tap = null; return; }
       if (e.type === 'pointerup' && tap && !tap.moved && !tap.multi && Date.now() - tap.t < 300) {
         var now = Date.now();
@@ -684,7 +876,8 @@
   }, { passive: false });
 
   window.addEventListener('resize', function () { remeasure(); apply(); });
-  img.addEventListener('load', function () { apply(); try { document.getElementById('thumb').src = img.currentSrc || img.src; } catch (e) {} });
+  function onImgLoad() { if (this !== img) return; apply(); try { document.getElementById('thumb').src = img.currentSrc || img.src; } catch (e) {} }
+  img.addEventListener('load', onImgLoad);
 
   function openDb() {
     return new Promise(function (resolve, reject) {
@@ -880,12 +1073,12 @@
       text: 'Отметь, что сбросить:',
       checks: [
         { id: 'view', label: 'Размер и положение фото', on: true },
-        { id: 'links', label: 'Ссылки этой страницы (удалить)', on: false }
+        { id: 'links', label: 'Ссылки страницы ' + (pages.cur + 1) + ' (' + pageItems().length + ' шт., удалить)', on: false }
       ],
       yes: 'Сбросить',
       ok: function (st2) {
         if (st2.view) resetAll();
-        if (st2.links) { links.items = links.items.filter(function (x) { return x.p !== pages.cur; }); saveLinks(); refreshLinks(); }
+        if (st2.links) { var nDel = pageItems().length; snap('до сброса ссылок стр. ' + (pages.cur + 1)); links.items = links.items.filter(function (x) { return x.p !== pages.cur; }); saveLinks(); refreshLinks(); if (nDel) offerUndo('Удалено ссылок: ' + nDel); }
       }
     });
   });
@@ -1023,21 +1216,45 @@
     delPageBtn.hidden = pages.count < 2;
     delPageBtn.textContent = 'Удалить страницу ' + (pages.cur + 1);
   }
-  // user = true: переключил человек (сохраняем и показываем плавно)
+  var outAnims = [];
+  function clearOut() { outAnims.forEach(function (a) { try { a.cancel(); } catch (e) {} }); outAnims = []; }
+  function slideOut(dir) {
+    clearOut();
+    if (!dir || !img.animate || reduceMotion) return Promise.resolve();
+    var d = window.innerWidth * 0.5 * dir;
+    var kf = [{ translate: '0px 0px', opacity: 1 }, { translate: d + 'px 0px', opacity: 0 }];
+    var o = { duration: 140, easing: 'ease-in', fill: 'forwards' };
+    try {
+      outAnims = [img.animate(kf, o), layer.animate(kf, o)];
+      return outAnims[0].finished.catch(function () {});
+    } catch (e) { return Promise.resolve(); }
+  }
+  function slideIn(dir) {
+    if (!dir || !img.animate || reduceMotion) return;
+    var d = window.innerWidth * 0.5 * dir;
+    var kf = [{ translate: d + 'px 0px', opacity: 0 }, { translate: '0px 0px', opacity: 1 }];
+    var o = { duration: 160, easing: 'ease-out' };
+    try { img.animate(kf, o); layer.animate(kf, o); } catch (e) {}
+  }
+  // user = true: переключил человек (сохраняем и листаем плавно, 0,3 с)
   function goPage(i, user) {
     i = Math.max(0, Math.min(pages.count - 1, i));
     var tok = ++loadTok;
-    getBlob(i).then(function (blob) {
+    var dir = (user && i !== pages.cur && sheetWrap.hidden) ? (i > pages.cur ? 1 : -1) : 0;
+    var outP = slideOut(dir);
+    Promise.all([getBlob(i), outP]).then(function (r) {
       if (tok !== loadTok) return;
+      var blob = r[0];
       pages.cur = i;
       st.sx = pages.sx[i]; st.sy = pages.sy[i];
       if (blob) showBlob(blob); else showSample();
       syncScaleUI(); apply();
       mvPanel.hidden = true;
       renderPages(); refreshLinks();
+      clearOut();
       if (user) {
         savePages();
-        if (img.animate) { try { img.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 180 }); layer.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 180 }); } catch (e) {} }
+        slideIn(-dir);
         if (sheetWrap.hidden && pages.count > 1) toast('Страница ' + (i + 1) + ' из ' + pages.count);
       }
       if (i + 1 < pages.count) getBlob(i + 1);
@@ -1059,6 +1276,7 @@
     chain.catch(function () {}).then(function () {
       blobCache = {};
       pages.sx.splice(d, 1); pages.sy.splice(d, 1); pages.count = n - 1;
+      if (links.ps) links.ps.splice(d, 1);
       links.items = links.items.filter(function (x) { return x.p !== d; });
       links.items.forEach(function (x) { if (x.p > d) x.p--; });
       var cur = pages.cur; if (d < cur) cur--;
@@ -1071,9 +1289,9 @@
     var d = pages.cur;
     askConfirm({
       title: 'Удалить страницу ' + (d + 1) + '?',
-      text: 'Её фото и ссылки на ней будут удалены. Остальные страницы сдвинутся.',
+      text: 'Её фото и ссылки на ней (' + links.items.filter(function (x) { return x.p === d; }).length + ' шт.) будут удалены. Остальные страницы и их ссылки не затрагиваются.',
       yes: 'Удалить',
-      ok: function () { removePage(d); }
+      ok: function () { snap('до удаления страницы ' + (d + 1)); removePage(d); }
     });
   });
 
@@ -1116,6 +1334,13 @@
   var placing = false, editingId = null, linksTouched = false, selId = null;
   var labelEls = [], LW = 0, LH = 0;
 
+  // «Показывать» и «Остановить» у каждой страницы свои
+  function ps(i) {
+    if (i === undefined) i = pages.cur;
+    if (!links.ps) links.ps = [];
+    while (links.ps.length <= i) links.ps.push({ show: links['show'] !== false, enabled: links['enabled'] !== false });
+    return links.ps[i];
+  }
   function pageItems() { return links.items.filter(function (x) { return x.p === pages.cur; }); }
   function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
   function num(v, lo, hi, d) { v = parseFloat(v); return isNaN(v) ? d : Math.min(hi, Math.max(lo, v)); }
@@ -1145,9 +1370,10 @@
     if (!d || typeof d !== 'object') return out;
     out.show = d.show !== false;
     out.enabled = d.enabled !== false;
+    out.ps = Array.isArray(d.ps) ? d.ps.slice(0, PAGE_MAX).map(function (x) { return { show: !x || x.show !== false, enabled: !x || x.enabled !== false }; }) : [];
     if (typeof d.pkg === 'string') out.pkg = d.pkg.trim().slice(0, 100);
     if (['intent', 'appscheme', 'nopkg', 'plain', 'http'].indexOf(d.mode) >= 0) out.mode = d.mode;
-    var cnt = {};
+    var cnt = {}, seen = {};
     (Array.isArray(d.items) ? d.items : []).forEach(function (it) {
       if (!it || typeof it !== 'object') return;
       var p = Math.min(PAGE_MAX - 1, Math.max(0, parseInt(it.p, 10) || 0));
@@ -1159,15 +1385,16 @@
       if (it.u !== undefined && it.v !== undefined) { u = num(it.u, -4, 4, 0); v = num(it.v, -4, 4, 0); }
       else { u = (num(it.x, 0, 100, 50) - 50) / 100; v = (num(it.y, 0, 100, 50) - 50) / 100; } // старый формат (v1.1)
       out.items.push({
-        id: String(it.id || uid()), p: p,
+        id: (function () { var k = String(it.id || ''); if (!k || seen[k]) k = uid(); seen[k] = 1; return k; })(), p: p,
         text: String(it.text || hostOf(url)).slice(0, 40),
-        url: url, u: u, v: v, s: num(it.s, 0.4, 4, 1), hs: num(it.hs === undefined ? it.s : it.hs, 0.4, 4, 1), r: num(it.r, 0, 1, 0)
+        url: url, u: u, v: v, s: num(it.s, 0.1, 8, 1), hs: num(it.hs === undefined ? it.s : it.hs, 0.1, 8, 1), r: num(it.r, 0, 1, 0)
       });
     });
     return out;
   }
   function saveLinks() {
     linksTouched = true;
+    if (Date.now() - lastAutoSnap > 300000) { lastAutoSnap = Date.now(); snap('авто'); }
     try { localStorage.setItem('photo-links', JSON.stringify(links)); } catch (e) {}
     dbPut('links', links).catch(function () {});
   }
@@ -1215,6 +1442,7 @@
 
   function measure() { LW = layer.clientWidth || window.innerWidth; LH = layer.clientHeight || window.innerHeight; }
   function updateLinks() {
+    if (handleEls && handleEls.length) posHandles();
     if (!labelEls.length) return;
     var ex = st.z * st.sx, ey = st.z * st.sy;
     for (var i = 0; i < labelEls.length; i++) {
@@ -1268,8 +1496,8 @@
       if (pinch && cnt() >= 2) {
         var k = Object.keys(pts);
         var d = Math.hypot(pts[k[0]].x - pts[k[1]].x, pts[k[0]].y - pts[k[1]].y);
-        it.s = num(pinch.s0 * d / pinch.d0, 0.4, 4, 1);
-        it.hs = num(pinch.h0 * d / pinch.d0, 0.4, 4, 1);
+        it.s = num(pinch.s0 * d / pinch.d0, 0.1, 8, 1);
+        it.hs = num(pinch.h0 * d / pinch.d0, 0.1, 8, 1);
         moved = true; syncSize(); shapeOf(it.id); updateLinks();
       } else if (drag) {
         var q = toUV(e.clientX, e.clientY);
@@ -1294,20 +1522,21 @@
     layer.textContent = '';
     labelEls = [];
     measure();
-    if (!links.enabled) return;
+    if (!ps().enabled) return;
     pageItems().forEach(function (it) {
       var el = document.createElement('div');
-      el.className = 'link-label' + (links.show ? '' : ' ghost') + (placing && it.id === selId ? ' sel' : '');
+      el.className = 'link-label' + (ps().show ? '' : ' ghost') + (placing && it.id === selId ? ' sel' : '');
       var f = document.createElement('span'); f.className = 'fill';
       var t = document.createElement('span'); t.className = 't'; t.textContent = it.text;
       el.appendChild(f); el.appendChild(t);
       el._it = it;
       layer.appendChild(el);
-      el._w0 = el.offsetWidth; el._h0 = el.offsetHeight;
-      applyShape(el);
       labelEls.push(el);
       bindLabel(el, it);
     });
+    labelEls.forEach(function (el) { el._w0 = el.offsetWidth; el._h0 = el.offsetHeight; });
+    labelEls.forEach(function (el) { applyShape(el); });
+    buildHandles();
     updateLinks();
   }
 
@@ -1315,6 +1544,10 @@
     selId = id;
     labelEls.forEach(function (el) { el.classList.toggle('sel', el._it.id === id); });
     syncSize();
+    posHandles();
+    // если панель ещё не двигали руками, уводим её в ту половину экрана, где нет выбранной ссылки
+    var se = selEl();
+    if (se && !placeBar.style.left) { var rr = se.getBoundingClientRect(); placeBar.classList.toggle('top', rr.top + rr.height / 2 > window.innerHeight / 2); }
   }
   var lkH = document.getElementById('lkH'), lkR = document.getElementById('lkR');
   var lkHVal = document.getElementById('lkHVal'), lkRVal = document.getElementById('lkRVal');
@@ -1322,6 +1555,8 @@
     var it = null;
     links.items.forEach(function (x) { if (x.id === selId) it = x; });
     pbSize.hidden = !(placing && it);
+    document.getElementById('pbHint').hidden = !!(placing && it);
+    if (!it && typeof pbForm !== 'undefined' && pbForm) pbForm.hidden = true;
     if (it) {
       lkSize.value = it.s; lkSizeVal.textContent = it.s.toFixed(2) + '×';
       lkH.value = it.hs; lkHVal.textContent = it.hs.toFixed(2) + '×';
@@ -1331,8 +1566,8 @@
   function onShape() {
     links.items.forEach(function (x) {
       if (x.id !== selId) return;
-      x.s = num(lkSize.value, 0.4, 4, 1);
-      x.hs = num(lkH.value, 0.4, 4, 1);
+      x.s = num(lkSize.value, 0.1, 8, 1);
+      x.hs = num(lkH.value, 0.1, 8, 1);
       x.r = num(lkR.value, 0, 1, 0);
     });
     syncSize(); shapeOf(selId); updateLinks();
@@ -1359,7 +1594,7 @@
   }
   stage.addEventListener('pointerdown', function (e) {
     if (press) { cancelPress(); return; }
-    if (placing || !links.enabled || !labelEls.length || e.isPrimary === false) return;
+    if (placing || !ps().enabled || !labelEls.length || e.isPrimary === false) return;
     var hit = hitLabel(e.clientX, e.clientY);
     if (!hit) return;
     var p = { el: hit, id: e.pointerId, x: e.clientX, y: e.clientY };
@@ -1387,6 +1622,110 @@
   stage.addEventListener('pointercancel', cancelPress);
   stage.addEventListener('contextmenu', function (e) { e.preventDefault(); });
 
+  // --- уголки для изменения размера выбранной ссылки ---
+  var handleEls = [];
+  var CORNERS = [[-1, -1], [1, -1], [-1, 1], [1, 1]];
+  function selItem() { var r = null; links.items.forEach(function (x) { if (x.id === selId) r = x; }); return r; }
+  function selEl() { for (var i = 0; i < labelEls.length; i++) if (labelEls[i]._it.id === selId) return labelEls[i]; return null; }
+  function geom(el) {
+    var it = el._it, z = st.z;
+    return {
+      px: LW / 2 + st.x + it.u * LW * z * st.sx, py: LH / 2 + st.y + it.v * LH * z * st.sy,
+      hw: el._w0 * it.s * z / 2, hh: el._h0 * it.hs * z / 2
+    };
+  }
+  function posHandles() {
+    var el = placing ? selEl() : null;
+    for (var k = 0; k < handleEls.length; k++) {
+      var h = handleEls[k];
+      if (!el) { h.classList.remove('on'); continue; }
+      var g = geom(el);
+      h.classList.add('on');
+      h.style.transform = 'translate(' + (g.px + h._c[0] * g.hw).toFixed(1) + 'px,' + (g.py + h._c[1] * g.hh).toFixed(1) + 'px) translate(-50%,-50%)';
+    }
+  }
+  function bindHandle(h) {
+    var drag = null;
+    h.addEventListener('pointerdown', function (e) {
+      var el = selEl(); if (!el) return;
+      e.stopPropagation(); e.preventDefault();
+      try { h.setPointerCapture(e.pointerId); } catch (er) {}
+      var g = geom(el);
+      drag = { el: el, it: el._it, ox: g.px - h._c[0] * g.hw, oy: g.py - h._c[1] * g.hh, id: e.pointerId };
+    });
+    h.addEventListener('pointermove', function (e) {
+      if (!drag || e.pointerId !== drag.id) return;
+      var b = box(), z = st.z, it = drag.it, el = drag.el;
+      var X = e.clientX - b.left, Y = e.clientY - b.top;
+      var sgx = X >= drag.ox ? 1 : -1, sgy = Y >= drag.oy ? 1 : -1;
+      it.s = num(Math.abs(X - drag.ox) / z / el._w0, 0.1, 8, it.s);
+      it.hs = num(Math.abs(Y - drag.oy) / z / el._h0, 0.1, 8, it.hs);
+      var q = toUV(drag.ox + sgx * el._w0 * it.s * z / 2 + b.left, drag.oy + sgy * el._h0 * it.hs * z / 2 + b.top);
+      it.u = num(q.u, -4, 4, it.u); it.v = num(q.v, -4, 4, it.v);
+      applyShape(el); syncSize(); updateLinks();
+    });
+    function up(e) { if (drag && e.pointerId === drag.id) { drag = null; saveLinks(); } }
+    h.addEventListener('pointerup', up);
+    h.addEventListener('pointercancel', up);
+  }
+  function buildHandles() {
+    handleEls = [];
+    if (!placing) return;
+    CORNERS.forEach(function (c) {
+      var h = document.createElement('div'); h.className = 'hnd'; h._c = c;
+      layer.appendChild(h); handleEls.push(h); bindHandle(h);
+    });
+    posHandles();
+  }
+  // --- панель расстановки: перетаскивание, изменение и удаление ссылки ---
+  var pbGrip = document.getElementById('pbGrip');
+  (function () {
+    var d = null;
+    pbGrip.addEventListener('pointerdown', function (e) {
+      var r = placeBar.getBoundingClientRect();
+      placeBar.style.transform = 'none'; placeBar.style.bottom = 'auto';
+      placeBar.style.left = r.left + 'px'; placeBar.style.top = r.top + 'px';
+      d = { id: e.pointerId, dx: e.clientX - r.left, dy: e.clientY - r.top };
+      try { pbGrip.setPointerCapture(e.pointerId); } catch (er) {}
+      e.preventDefault();
+    });
+    pbGrip.addEventListener('pointermove', function (e) {
+      if (!d || e.pointerId !== d.id) return;
+      var w = placeBar.offsetWidth, h = placeBar.offsetHeight;
+      placeBar.style.left = Math.min(window.innerWidth - w, Math.max(0, e.clientX - d.dx)) + 'px';
+      placeBar.style.top = Math.min(window.innerHeight - h, Math.max(0, e.clientY - d.dy)) + 'px';
+    });
+    function up() { d = null; }
+    pbGrip.addEventListener('pointerup', up);
+    pbGrip.addEventListener('pointercancel', up);
+  })();
+  var pbForm = document.getElementById('pbForm'), pbText = document.getElementById('pbText'), pbUrl = document.getElementById('pbUrl'), pbErr = document.getElementById('pbErr');
+  document.getElementById('pbEdit').addEventListener('click', function () {
+    var it = selItem(); if (!it) return;
+    pbText.value = it.text; pbUrl.value = it.url; pbErr.textContent = ''; pbForm.hidden = false;
+  });
+  document.getElementById('pbFormCancel').addEventListener('click', function () { pbForm.hidden = true; });
+  document.getElementById('pbFormSave').addEventListener('click', function () {
+    var it = selItem(); if (!it) return;
+    var url = pbUrl.value.trim();
+    if (!normUrl(url)) { pbErr.textContent = 'Проверь адрес: например, gmail.com'; return; }
+    it.text = pbText.value.trim() || hostOf(url); it.url = url;
+    saveLinks(); pbForm.hidden = true; renderLabels(); syncSize();
+  });
+  document.getElementById('pbDel').addEventListener('click', function () {
+    var it = selItem(); if (!it) return;
+    askConfirm({
+      title: 'Удалить ссылку?',
+      text: '«' + it.text + '» (' + hostOf(it.url) + ')',
+      yes: 'Удалить',
+      ok: function () {
+        snap('до удаления «' + it.text + '»');
+        var ix = links.items.indexOf(it); if (ix >= 0) links.items.splice(ix, 1);
+        selId = null; saveLinks(); renderLabels(); syncSize(); offerUndo('Ссылка удалена');
+      }
+    });
+  });
+
   var armedTimer = 0;
   function renderList() {
     linksList.textContent = '';
@@ -1404,8 +1743,9 @@
       db.addEventListener('click', function () {
         if (db.classList.contains('armed')) {
           clearTimeout(armedTimer);
-          links.items = links.items.filter(function (x) { return x.id !== it.id; });
-          saveLinks(); refreshLinks();
+          snap('до удаления «' + it.text + '»');
+          var ix = links.items.indexOf(it); if (ix >= 0) links.items.splice(ix, 1);
+          saveLinks(); refreshLinks(); offerUndo('Ссылка удалена');
           return;
         }
         var prev = linksList.querySelector('.lk-ico.armed');
@@ -1433,13 +1773,13 @@
     });
     linksEmpty.hidden = pn > 0;
     linksTitle.textContent = (pages.count > 1 ? 'Ссылки · стр. ' + (pages.cur + 1) : 'Ссылки') + ' (' + pn + ')';
-    openLinksBtn.textContent = (pn ? 'Ссылки (' + pn + ')' : 'Ссылки') + (links.enabled ? '' : ' — остановлены');
+    openLinksBtn.textContent = (pn ? 'Ссылки (' + pn + ')' : 'Ссылки') + (ps().enabled ? '' : ' — остановлены');
     lkMove.hidden = pages.count < 2 || !pn;
-    lkShow.checked = links.show;
+    lkShow.checked = ps().show;
     lkPkg.value = links.pkg || '';
     renderModes();
-    lkEnable.textContent = links.enabled ? 'Остановить ссылки' : 'Включить ссылки';
-    var canPlace = pn && links.enabled;
+    lkEnable.textContent = ps().enabled ? 'Остановить ссылки этой страницы' : 'Включить ссылки этой страницы';
+    var canPlace = pn && ps().enabled;
     lkPlace.disabled = !canPlace;
     lkPlace.style.opacity = canPlace ? '' : '0.45';
   }
@@ -1472,7 +1812,7 @@
     }
     saveLinks(); closeForm(); refreshLinks();
   });
-  lkShow.addEventListener('change', function () { links.show = lkShow.checked; saveLinks(); renderLabels(); });
+  lkShow.addEventListener('change', function () { ps().show = lkShow.checked; saveLinks(); renderLabels(); });
   lkPkg.addEventListener('change', function () { links.pkg = lkPkg.value.trim().slice(0, 100); saveLinks(); });
   var stripTimer = 0;
   document.getElementById('lkStrip').addEventListener('click', function () {
@@ -1488,7 +1828,7 @@
     stripTimer = setTimeout(function () { btn.textContent = 'Убрать https:// у всех ссылок'; }, 2000);
   });
   lkEnable.addEventListener('click', function () {
-    links.enabled = !links.enabled;
+    ps().enabled = !ps().enabled;
     saveLinks(); cancelPress(); refreshLinks();
   });
 
@@ -1525,19 +1865,20 @@
     if (mvTo < 0) { mvErr.textContent = 'Выбери страницу, куда перенести'; return; }
     var have = links.items.filter(function (x) { return x.p === mvTo; }).length;
     if (have + sel.length > LINK_MAX) { mvErr.textContent = 'На странице ' + (mvTo + 1) + ' не хватит места (максимум ' + LINK_MAX + ')'; return; }
+    snap('до переноса/копирования');
     if (copy) sel.forEach(function (x) { links.items.push({ id: uid(), text: x.text, url: x.url, u: x.u, v: x.v, s: x.s, hs: x.hs, r: x.r, p: mvTo }); });
     else sel.forEach(function (x) { x.p = mvTo; }); // размер и место не меняются
-    saveLinks(); mvPanel.hidden = true; refreshLinks();
+    saveLinks(); mvPanel.hidden = true; refreshLinks(); offerUndo(copy ? 'Ссылки скопированы' : 'Ссылки перенесены');
   }
   document.getElementById('mvGo').addEventListener('click', function () { mvRun(false); });
   document.getElementById('mvCopy').addEventListener('click', function () { mvRun(true); });
-  function openLinksScreen() { closeForm(); linksWrap.hidden = false; refreshLinks(); }
+  function openLinksScreen() { closeForm(); linksWrap.hidden = false; refreshLinks(); bkUi(); }
   function closeLinksScreen() { closeForm(); mvPanel.hidden = true; linksWrap.hidden = true; }
   openLinksBtn.addEventListener('click', openLinksScreen);
   document.getElementById('linksBack').addEventListener('click', closeLinksScreen);
 
   function startPlacing() {
-    if (!pageItems().length || !links.enabled) return;
+    if (!pageItems().length || !ps().enabled) return;
     closeLinksScreen();
     closeSheet();
     cancelPress();
@@ -1551,6 +1892,8 @@
   function stopPlacing() {
     placing = false;
     selId = null;
+    placeBar.style.left = placeBar.style.top = placeBar.style.bottom = placeBar.style.transform = '';
+    placeBar.classList.remove('top');
     document.body.classList.remove('placing');
     placeBar.hidden = true;
     saveLinks();
@@ -1567,6 +1910,193 @@
     if (!sheetWrap.hidden) { closeSheet(); return true; }
     return false;
   };
+
+  // ---------- Автокопии и «Отменить» ----------
+  var SNAP_MAX = 8, lastAutoSnap = 0, undoTimer = 0;
+  var undoBar = document.getElementById('undoBar'), undoText = document.getElementById('undoText');
+  var snapPanel = document.getElementById('snapPanel'), snapList = document.getElementById('snapList');
+  var bulkPanel = document.getElementById('bulkPanel'), bulkText = document.getElementById('bulkText'), bulkErr = document.getElementById('bulkErr');
+  function readSnaps() { var a = []; try { a = JSON.parse(localStorage.getItem('photo-snaps') || '[]'); } catch (e) {} return Array.isArray(a) ? a : []; }
+  function writeSnaps(a) {
+    try { localStorage.setItem('photo-snaps', JSON.stringify(a)); } catch (e) { try { localStorage.setItem('photo-snaps', JSON.stringify(a.slice(0, 2))); } catch (e2) {} }
+    dbPut('snaps', a).catch(function () {});
+  }
+  function snap(why) {
+    if (!links.items.length) return;
+    var d = JSON.stringify(links.items), a = readSnaps();
+    if (a.length && a[0].d === d) return;
+    a.unshift({ t: Date.now(), why: why, n: links.items.length, d: d });
+    writeSnaps(a.slice(0, SNAP_MAX));
+  }
+  function offerUndo(msg) {
+    undoText.textContent = msg; undoBar.hidden = false;
+    clearTimeout(undoTimer);
+    undoTimer = setTimeout(function () { undoBar.hidden = true; }, 10000);
+  }
+  function restoreSnap(e, keep) {
+    var items = []; try { items = JSON.parse(e.d); } catch (x) {}
+    var tmp = sanitizeLinks({ items: items });
+    if (keep) snap('до возврата автокопии');
+    var need = 1; tmp.items.forEach(function (x) { if (x.p + 1 > need) need = x.p + 1; });
+    while (pages.count < need && pages.count < PAGE_MAX) { pages.sx.push(1); pages.sy.push(1); pages.count++; }
+    links.items = tmp.items; selId = null;
+    savePages(); saveLinks(); renderPages(); refreshLinks();
+  }
+  document.getElementById('undoBtn').addEventListener('click', function () {
+    undoBar.hidden = true; clearTimeout(undoTimer);
+    var a = readSnaps(); if (a[0]) restoreSnap(a[0], false);
+  });
+  function fmtT(t) { var d = new Date(t); return p2(d.getDate()) + '.' + p2(d.getMonth() + 1) + ' ' + p2(d.getHours()) + ':' + p2(d.getMinutes()); }
+  function renderSnaps() {
+    snapList.textContent = '';
+    var a = readSnaps();
+    if (!a.length) { snapList.textContent = 'Пока нет автокопий. Они появляются сами перед удалением и переносом.'; return; }
+    a.forEach(function (e) {
+      var row = document.createElement('div'); row.className = 'chk';
+      var lb = document.createElement('span'); lb.textContent = fmtT(e.t) + ' · ' + e.why + ' · ссылок: ' + e.n;
+      row.appendChild(lb);
+      row.addEventListener('click', function () {
+        askConfirm({
+          title: 'Вернуть ссылки из автокопии?',
+          text: fmtT(e.t) + ', ссылок: ' + e.n + '. Текущие ссылки заменятся (их копия сохранится).',
+          yes: 'Вернуть',
+          ok: function () { restoreSnap(e, true); snapPanel.hidden = true; }
+        });
+      });
+      snapList.appendChild(row);
+    });
+  }
+  document.getElementById('lkSnaps').addEventListener('click', function () { closeForm(); mvPanel.hidden = true; bulkPanel.hidden = true; renderSnaps(); snapPanel.hidden = false; snapPanel.scrollIntoView({ block: 'nearest' }); });
+  document.getElementById('snapClose').addEventListener('click', function () { snapPanel.hidden = true; });
+  // «Добавить списком»: каждая строка = «Название адрес» (или только адрес)
+  document.getElementById('lkBulk').addEventListener('click', function () { closeForm(); mvPanel.hidden = true; snapPanel.hidden = true; bulkText.value = ''; bulkErr.textContent = ''; bulkPanel.hidden = false; bulkPanel.scrollIntoView({ block: 'nearest' }); setTimeout(function () { try { bulkText.focus(); } catch (e) {} }, 30); });
+  document.getElementById('bulkCancel').addEventListener('click', function () { bulkPanel.hidden = true; });
+  document.getElementById('bulkAdd').addEventListener('click', function () {
+    var lines = bulkText.value.split(/\r?\n/), out = [];
+    for (var i = 0; i < lines.length; i++) {
+      var ln = lines[i].trim(); if (!ln) continue;
+      var tk = ln.split(/\s+/), url, text;
+      if (normUrl(tk[tk.length - 1])) { url = tk.pop(); text = tk.join(' '); }
+      else if (normUrl(tk[0])) { url = tk.shift(); text = tk.join(' '); }
+      else { bulkErr.textContent = 'Строка «' + ln.slice(0, 30) + '»: не нашёл адрес (например gmail.com)'; return; }
+      out.push({ text: (text || hostOf(url)).slice(0, 40), url: url });
+    }
+    if (!out.length) { bulkErr.textContent = 'Список пустой'; return; }
+    var have = pageItems().length;
+    if (have + out.length > LINK_MAX) { bulkErr.textContent = 'Не влезет: на странице максимум ' + LINK_MAX + ', сейчас ' + have + ', в списке ' + out.length; return; }
+    snap('до добавления списком');
+    out.forEach(function (o, k) {
+      var n = have + k;
+      links.items.push({ id: uid(), text: o.text, url: o.url, u: ((Math.floor(n / 12) % 3) - 1) * 0.3, v: -0.4 + (n % 12) * 0.07, s: 1, hs: 1, r: 0, p: pages.cur });
+    });
+    saveLinks(); bulkPanel.hidden = true; refreshLinks(); offerUndo('Добавлено ссылок: ' + out.length);
+  });
+
+  // ---------- Копия ссылок ----------
+  var bkName = document.getElementById('bkName'), bkMsg = document.getElementById('bkMsg');
+  var bkFolder = document.getElementById('bkFolder'), bkPick = document.getElementById('bkPick'), bkFolderRow = document.getElementById('bkFolderRow');
+  var NATIVE = window.PhotoNative || null;
+  function p2(n) { return (n < 10 ? '0' : '') + n; }
+  function bkDefaultName() { var d = new Date(); return 'ссылки-' + d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate()) + '_' + p2(d.getHours()) + '-' + p2(d.getMinutes()); }
+  function bkUi() {
+    if (!bkName.value) bkName.value = bkDefaultName();
+    bkMsg.textContent = '';
+    if (NATIVE) {
+      bkPick.hidden = false; bkFolderRow.hidden = false;
+      var n = ''; try { n = String(NATIVE.folderName() || ''); } catch (e) {}
+      bkFolder.textContent = n || 'не выбрана';
+    }
+  }
+  window.__folderPicked = function (n) { bkFolder.textContent = n || 'не выбрана'; bkMsg.textContent = 'Папка выбрана: ' + n; };
+  bkPick.addEventListener('click', function () { try { NATIVE.pickFolder(); } catch (e) { bkMsg.textContent = 'Не удалось открыть выбор папки'; } });
+  document.getElementById('bkSave').addEventListener('click', function () {
+    var data = { app: 'photo-links', version: 1, saved: new Date().toISOString(), pages: pages.count, items: links.items.map(function (x) {
+      return { text: x.text, url: x.url, page: x.p, u: x.u, v: x.v, s: x.s, hs: x.hs, r: x.r };
+    }) };
+    var text = JSON.stringify(data, null, 1), name = (bkName.value.trim() || bkDefaultName()), n = data.items.length;
+    if (NATIVE && NATIVE.saveText) {
+      var r = ''; try { r = String(NATIVE.saveText(name, text)); } catch (e) { r = 'err:' + e; }
+      if (r === 'nofolder') bkMsg.textContent = 'Сначала нажми «Выбрать папку для копий».';
+      else if (r.indexOf('ok:') === 0) bkMsg.textContent = 'Сохранено: ' + r.slice(3) + ' · ссылок: ' + n;
+      else bkMsg.textContent = 'Не удалось сохранить (' + r.slice(4) + '). Выбери папку заново.';
+      return;
+    }
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([text], { type: 'application/json' }));
+    a.download = name.replace(/[\\\/:*?"<>|]/g, '_') + (/\.json$/i.test(name) ? '' : '.json');
+    document.body.appendChild(a); a.click();
+    setTimeout(function () { URL.revokeObjectURL(a.href); if (a.parentNode) a.parentNode.removeChild(a); }, 1000);
+    bkMsg.textContent = 'Файл «' + a.download + '» скачан (папка Загрузки). Ссылок: ' + n;
+  });
+  var bkFile = document.getElementById('bkFile');
+  document.getElementById('bkLoad').addEventListener('click', function () { bkFile.click(); });
+  bkFile.addEventListener('change', function () {
+    var f = bkFile.files && bkFile.files[0]; if (!f) return;
+    var fr = new FileReader();
+    fr.onload = function () {
+      var obj = null; try { obj = JSON.parse(String(fr.result)); } catch (e) {}
+      if (!obj || obj.app !== 'photo-links' || !Array.isArray(obj.items)) { bkMsg.textContent = 'Это не файл копии ссылок.'; return; }
+      var tmp = sanitizeLinks({ items: obj.items.map(function (it) { return { id: uid(), text: it.text, url: it.url, u: it.u, v: it.v, s: it.s, hs: it.hs, r: it.r, p: it.page }; }) });
+      var per = {}, need = 1;
+      tmp.items.forEach(function (x) { per[x.p] = (per[x.p] || 0) + 1; if (x.p + 1 > need) need = x.p + 1; });
+      var desc = Object.keys(per).map(function (k) { return 'стр. ' + (+k + 1) + ': ' + per[k]; }).join(', ');
+      askConfirm({
+        title: 'Загрузить ссылки из файла?',
+        text: 'В файле ' + tmp.items.length + ' ссылок (' + desc + ').',
+        checks: [{ id: 'replace', label: 'Заменить текущие ссылки (если снять, добавятся к ним)', on: true }],
+        yes: 'Загрузить',
+        ok: function (c) {
+          snap('до загрузки из файла');
+          while (pages.count < need && pages.count < PAGE_MAX) { pages.sx.push(1); pages.sy.push(1); pages.count++; }
+          var add = tmp.items, skipped = 0;
+          if (c.replace) links.items = [];
+          else {
+            var have = {}; links.items.forEach(function (x) { have[x.p] = (have[x.p] || 0) + 1; });
+            add = tmp.items.filter(function (x) { have[x.p] = (have[x.p] || 0) + 1; if (have[x.p] > LINK_MAX) { skipped++; return false; } return true; });
+          }
+          add.forEach(function (x) { links.items.push(x); });
+          savePages(); saveLinks(); renderPages(); refreshLinks();
+          bkMsg.textContent = 'Загружено ссылок: ' + add.length + (skipped ? ' (пропущено из-за лимита: ' + skipped + ')' : '');
+          offerUndo('Ссылки загружены из файла');
+        }
+      });
+    };
+    fr.onerror = function () { bkMsg.textContent = 'Не удалось прочитать файл.'; };
+    fr.readAsText(f);
+    try { bkFile.value = ''; } catch (e) {}
+  });
+
+  // ---------- Ручной ввод чисел у ползунков ----------
+  function editValue(span, getVal, setVal, lo, hi, pct) {
+    span.classList.add('editable');
+    span.addEventListener('click', function () {
+      if (span._ed) return;
+      span._ed = true;
+      var inp = document.createElement('input');
+      inp.type = 'text'; inp.inputMode = 'decimal'; inp.className = 'numin';
+      inp.value = pct ? String(Math.round(getVal() * 100)) : getVal().toFixed(2);
+      span.textContent = ''; span.appendChild(inp); inp.focus(); inp.select();
+      function done(commit) {
+        if (!span._ed) return;
+        span._ed = false;
+        var v = parseFloat(String(inp.value).replace(',', '.'));
+        if (inp.parentNode) inp.parentNode.removeChild(inp);
+        if (commit && !isNaN(v)) setVal(Math.min(hi, Math.max(lo, pct ? v / 100 : v))); else setVal(getVal());
+      }
+      inp.addEventListener('blur', function () { done(true); });
+      inp.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') { e.preventDefault(); inp.blur(); }
+        if (e.key === 'Escape') done(false);
+      });
+    });
+  }
+  function setShape(key, v) { var it = selItem(); if (!it) return; it[key] = v; saveLinks(); shapeOf(it.id); updateLinks(); syncSize(); }
+  editValue(sxVal, function () { return st.sx; }, function (v) { st.sx = clampS(v); syncScaleUI(); apply(); saveSettings(); }, 0.1, 6, false);
+  editValue(syVal, function () { return st.sy; }, function (v) { st.sy = clampS(v); syncScaleUI(); apply(); saveSettings(); }, 0.1, 6, false);
+  editValue(opVal, function () { return parseFloat(opEl.value); }, function (v) { opEl.value = v; applyOpacity(v); saveSettings(); }, 0.1, 1, true);
+  editValue(lkSizeVal, function () { var it = selItem(); return it ? it.s : 1; }, function (v) { setShape('s', v); }, 0.1, 8, false);
+  editValue(lkHVal, function () { var it = selItem(); return it ? it.hs : 1; }, function (v) { setShape('hs', v); }, 0.1, 8, false);
+  editValue(lkRVal, function () { var it = selItem(); return it ? it.r : 0; }, function (v) { setShape('r', v); }, 0, 1, true);
 
   remeasure();
   try { if (window.ResizeObserver) new ResizeObserver(function () { remeasure(); apply(); }).observe(stage); } catch (e) {}
