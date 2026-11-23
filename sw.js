@@ -1,6 +1,6 @@
 // Когда меняешь файлы приложения, увеличь номер версии (v1 -> v2),
 // чтобы телефон подхватил обновление.
-var CACHE = 'photo-app-v37';
+var CACHE = 'photo-app-v40';
 var ASSETS = [
   './',
   'index.html',
@@ -35,7 +35,8 @@ self.addEventListener('fetch', function (e) {
     caches.match(e.request, { ignoreSearch: true }).then(function (hit) {
       if (hit) return hit;
       return fetch(e.request).then(function (res) {
-        if (res && res.ok && new URL(e.request.url).origin === self.location.origin) {
+        var host = new URL(e.request.url).hostname;
+        if (res && (res.ok || res.type === 'opaque') && (new URL(e.request.url).origin === self.location.origin || host === 'fonts.googleapis.com' || host === 'fonts.gstatic.com')) {
           var copy = res.clone();
           caches.open(CACHE).then(function (c) { c.put(e.request, copy); });
         }

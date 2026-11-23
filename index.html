@@ -4,7 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, interactive-widget=resizes-content">
 <title>Моё фото</title>
-<meta name="theme-color" content="#0c0e11">
+<meta name="theme-color" content="#0a0a0b">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600&family=Oswald:wght@400;500;600&display=swap">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" type="image/png" href="icon-192.png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
@@ -31,6 +33,7 @@
     overscroll-behavior: none;
   }
   .stage {
+    background: #0f0d0b; /* за фото всегда тёмно, в любой теме: светлые поля по краям портят вид */
     position: absolute;
     inset: 0;
     overflow: hidden;
@@ -211,6 +214,7 @@
   }
   .place-bar { max-height: calc(100% - 24px); overflow-y: auto; }
   .pb-grip { text-align: center; padding: 8px 0; margin: -4px 0 0; color: var(--muted); font-size: 12px; letter-spacing: 0.04em; border-bottom: 1px solid var(--line); cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none; }
+  .links-wrap input[type=search] { font: inherit; font-size: 16px; color: var(--fg); background: var(--bg); border: 1px solid var(--line); border-radius: 12px; padding: 11px 12px; width: 100%; }
   .place-bar input[type=text], .place-bar input[type=url] { font: inherit; font-size: 16px; color: var(--fg); background: var(--bg); border: 1px solid var(--line); padding: 10px; width: 100%; }
   .place-bar.top { bottom: auto; top: max(12px, env(safe-area-inset-top)); }
   .place-bar[hidden] { display: none; }
@@ -309,6 +313,61 @@
   .confirm-btns { display: flex; gap: 10px; }
   .sq-btn { flex: 1; min-height: 46px; border: 1px solid var(--line); background: transparent; color: var(--fg); font: inherit; border-radius: 0; cursor: pointer; }
   .sq-btn.danger { background: #c0392b; border-color: #c0392b; color: #fff; }
+
+  /* ===== Nero: чёрный, холодный, точный; один тонкий акцент (giallo) ===== */
+  :root {
+    --bg: #0a0a0b; --fg: #ececea; --muted: #85858c; --surface: #111113; --line: #26262b;
+    --accent: #e8b923; --accent-rgb: 232, 185, 35; --accent-ink: #0a0a0b; --scrim: rgba(0, 0, 0, 0.64); --track: rgba(255, 255, 255, 0.22);
+    --head: 'Oswald', 'Arial Narrow', system-ui, sans-serif;
+    --body: 'Golos Text', system-ui, -apple-system, sans-serif;
+  }
+  body.warm { --bg: #17181b; --fg: #e8e9ec; --muted: #8e919a; --surface: #1f2125; --line: #34373d; --accent: #8fb8d8; --accent-rgb: 143, 184, 216; --accent-ink: #0f1114; --scrim: rgba(0, 0, 0, 0.55); --track: rgba(255, 255, 255, 0.24); color-scheme: dark; }
+  body.warm .row:active { background: rgba(255, 255, 255, 0.07); }
+  body.warm .row.danger { color: #ff8a8a; }
+  body.warm.ui-fading .setting-row.keep { background: rgba(31, 33, 37, 0.85); }
+  body.warm .lerr { color: #ff6b5e; }
+  body { font-family: var(--body); }
+  .setting-row label, .lchk { color: var(--fg); }
+  .sheet h1, .lhead h1, .pb-ft { font-family: var(--head); font-weight: 500; font-size: 20px; letter-spacing: 0.12em; text-transform: uppercase; }
+  .btn, .pg, .sq-btn, .grp, .pb-grip, .version-text { font-family: var(--head); }
+  .btn { border-radius: 0; font-size: 15px; font-weight: 500; letter-spacing: 0.1em; text-transform: uppercase; min-height: 48px; }
+  .btn.primary { border-color: transparent; font-weight: 600; clip-path: polygon(11px 0, 100% 0, 100% calc(100% - 11px), calc(100% - 11px) 100%, 0 100%, 0 11px); }
+  .btn:active { background: var(--line); }
+  .btn.primary:active { filter: brightness(0.9); background: var(--accent); }
+  .sheet { border-radius: 0; background: var(--surface) linear-gradient(var(--accent), var(--accent)) no-repeat 16px 0 / 40px 2px; }
+  body.ui-fading .sheet { background: transparent; }
+  .place-bar { border-radius: 0; background: rgba(10, 10, 11, 0.96) linear-gradient(var(--accent), var(--accent)) no-repeat 14px 0 / 40px 2px; }
+  body.warm .place-bar { background: rgba(31, 33, 37, 0.96) linear-gradient(var(--accent), var(--accent)) no-repeat 14px 0 / 40px 2px; }
+  .pb-grip { font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; }
+  .gear { border-radius: 0; width: 44px; height: 44px; border-color: rgba(255, 255, 255, 0.3); background: rgba(10, 10, 11, 0.6); color: #ececea; }
+  .gear:active { background: var(--accent); color: #0a0a0b; }
+  .grp { font-size: 12px; letter-spacing: 0.18em; color: var(--accent); }
+  .grp::after { background: var(--line); }
+  .pg { border-radius: 0; font-weight: 500; letter-spacing: 0.08em; }
+  .pg.on { color: var(--accent-ink); font-weight: 600; }
+  .rows, .photo-row, .lk-item, .lform, .chk { border-radius: 0; }
+  .lk-ico { border-radius: 0; }
+  .links-wrap input[type=search], .lform input[type=text], .lform input[type=url], .place-bar input[type=text], .place-bar input[type=url], .numin { border-radius: 0; font-family: var(--body); }
+  .links-wrap input[type=search]:focus, .lform input:focus, .place-bar input:focus { outline: none; border-color: var(--accent); }
+  .editable, .pb-size span, .setting-row label span { font-family: var(--head); font-size: 15px; letter-spacing: 0.06em; font-variant-numeric: tabular-nums; }
+  .version-text { letter-spacing: 0.22em; text-transform: uppercase; opacity: 0.6; }
+  /* ползунок реагирует только на касание бегунка: пролистывание настроек пальцем больше ничего не сдвигает */
+  input[type=range] { -webkit-appearance: none; appearance: none; background: transparent; height: 34px; accent-color: var(--accent); pointer-events: none; }
+  input[type=range]::-webkit-slider-runnable-track { height: 2px; background: var(--track); }
+  input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; pointer-events: auto; width: 34px; height: 34px; margin-top: -16px; border: 0; border-radius: 0; background: linear-gradient(var(--accent), var(--accent)) center / 10px 22px no-repeat; }
+  input[type=range]::-moz-range-track { height: 2px; background: var(--track); }
+  input[type=range]::-moz-range-thumb { pointer-events: auto; width: 34px; height: 34px; border: 0; border-radius: 0; background: linear-gradient(var(--accent), var(--accent)) center / 10px 22px no-repeat; }
+  /* список действий без рамок: просто строки, при нажатии подсвечиваются акцентом */
+  .rows { border: 0; gap: 2px; }
+  .row { border-top: 0; min-height: 48px; padding: 0 4px 0 12px; letter-spacing: 0.02em; }
+  .row:active, body.warm .row:active { background: rgba(var(--accent-rgb), 0.12); box-shadow: inset 2px 0 0 var(--accent); }
+  .link-label { background: rgba(8, 8, 9, 0.72); border: 1px solid rgba(255, 255, 255, 0.3); font-family: var(--head); font-weight: 500; font-size: 15px; letter-spacing: 0.08em; text-transform: uppercase; }
+  .link-label .fill { background: rgba(var(--accent-rgb), 0.55); }
+  body.placing .link-label.sel { border: 1.5px solid var(--accent); background: rgba(var(--accent-rgb), 0.18); }
+  .undo-bar { border-color: var(--accent); }
+  .chk.on .box::after { border-color: var(--accent-ink); }
+  .lerr { color: #ff6b5e; }
+  .pg-toast { font-family: var(--head); letter-spacing: 0.1em; text-transform: uppercase; }
 </style>
 </head>
 <body>
@@ -356,7 +415,7 @@
 
     <div class="grp"><span>Общие</span></div>
     <div class="sec">Оформление</div>
-    <div class="pgrow" id="themeRow"><button class="pg" type="button" data-t="warm">Тёплое</button><button class="pg" type="button" data-t="dark">Тёмное</button></div>
+    <div class="pgrow" id="themeRow"><button class="pg" type="button" data-t="warm">Графит</button><button class="pg" type="button" data-t="dark">Тёмное</button><button class="pg" type="button" data-t="auto">Авто</button></div>
     <div class="setting-row">
       <label>Прозрачность кнопки <span id="opacityVal">100%</span></label>
       <input type="range" id="gearOpacity" min="0.1" max="1" step="0.01" value="1">
@@ -364,7 +423,7 @@
     <div class="rows"><button class="row go" id="openLinks" type="button">Ссылки</button></div>
     <button class="btn primary" id="close" type="button">Готово</button>
 
-    <div class="version-text">v2.5.0</div>
+    <div class="version-text">v2.8.0</div>
   </div>
 </div>
 
@@ -403,7 +462,8 @@
     </div>
     <label class="lchk"><input type="checkbox" id="lkShow" checked> Показывать ссылки этой страницы (скрытые всё равно работают)</label>
     <button class="btn" id="lkEnable" type="button">Остановить ссылки этой страницы</button>
-    <button class="btn" id="lkStrip" type="button">Убрать https:// у всех ссылок</button>
+    <input type="search" id="lkSearch" placeholder="Поиск по ссылкам этой страницы" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="search">
+    <div class="lerr" id="lkNone" hidden style="color:var(--muted)">Ничего не найдено</div>
     <div class="grp"><span>Копия ссылок</span></div>
     <div class="lchk" id="bkFolderRow" hidden>Папка для копий: <b id="bkFolder">не выбрана</b></div>
     <button class="btn" id="bkPick" type="button" hidden>Выбрать папку для копий</button>
@@ -1211,19 +1271,23 @@
 
 
   // ---------- Оформление ----------
+  var darkMq = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null, themeNow = 'warm';
   function setTheme(t, save) {
-    document.body.classList.toggle('warm', t === 'warm');
+    themeNow = t;
+    var warm = t === 'auto' ? !(darkMq && darkMq.matches) : t === 'warm';
+    document.body.classList.toggle('warm', warm);
     var bs = document.querySelectorAll('#themeRow .pg');
     for (var i = 0; i < bs.length; i++) bs[i].classList.toggle('on', bs[i].getAttribute('data-t') === t);
-    if (save) { try { localStorage.setItem('photo-theme', t); } catch (e) {} }
+    if (save) { try { localStorage.setItem('photo-theme2', t); } catch (e) {} }
   }
   document.getElementById('themeRow').addEventListener('click', function (e) {
     var t = e.target.getAttribute && e.target.getAttribute('data-t');
     if (t) setTheme(t, true);
   });
   var theme0 = 'warm';
-  try { theme0 = localStorage.getItem('photo-theme') || 'warm'; } catch (e) {}
-  setTheme(theme0 === 'dark' ? 'dark' : 'warm', false);
+  try { theme0 = localStorage.getItem('photo-theme2') || 'dark'; } catch (e) {}
+  setTheme(theme0 === 'dark' || theme0 === 'auto' ? theme0 : 'warm', false);
+  if (darkMq) { var onMq = function () { if (themeNow === 'auto') setTheme('auto', false); }; if (darkMq.addEventListener) darkMq.addEventListener('change', onMq); else if (darkMq.addListener) darkMq.addListener(onMq); }
 
   // ---------- Страницы ----------
   var pgRow = document.getElementById('pgRow');
@@ -1350,6 +1414,7 @@
   var layer = document.getElementById('linksLayer');
   var linksWrap = document.getElementById('linksWrap');
   var linksList = document.getElementById('linksList');
+  var lkSearch = document.getElementById('lkSearch'), lkNone = document.getElementById('lkNone');
   var linksEmpty = document.getElementById('linksEmpty');
   var linksTitle = document.getElementById('linksTitle');
   var openLinksBtn = document.getElementById('openLinks');
@@ -1812,7 +1877,10 @@
   function renderList() {
     linksList.textContent = '';
     var pitems = pageItems(), pn = pitems.length;
-    pitems.forEach(function (it) {
+    var q = (lkSearch.value || '').trim().toLowerCase();
+    var shown = q ? pitems.filter(function (x) { return (x.text + ' ' + x.url).toLowerCase().indexOf(q) >= 0; }) : pitems;
+    lkNone.hidden = !(q && pn && !shown.length);
+    shown.forEach(function (it) {
       var row = document.createElement('div'); row.className = 'lk-item';
       var btns = document.createElement('div'); btns.className = 'lk-btns';
       var eb = document.createElement('button');
@@ -1896,19 +1964,7 @@
   });
   lkShow.addEventListener('change', function () { ps().show = lkShow.checked; saveLinks(); renderLabels(); });
   lkPkg.addEventListener('change', function () { links.pkg = lkPkg.value.trim().slice(0, 100); saveLinks(); });
-  var stripTimer = 0;
-  document.getElementById('lkStrip').addEventListener('click', function () {
-    var n = 0;
-    links.items.forEach(function (x) {
-      var y = x.url.replace(/^https:\/\//i, '');
-      if (y !== x.url && normUrl(y)) { x.url = y; n++; }
-    });
-    var btn = document.getElementById('lkStrip');
-    if (n) { saveLinks(); refreshLinks(); }
-    btn.textContent = n ? 'Убрано у ' + n + ' шт.' : 'Нечего убирать';
-    clearTimeout(stripTimer);
-    stripTimer = setTimeout(function () { btn.textContent = 'Убрать https:// у всех ссылок'; }, 2000);
-  });
+  lkSearch.addEventListener('input', renderList);
   lkEnable.addEventListener('click', function () {
     ps().enabled = !ps().enabled;
     saveLinks(); cancelPress(); refreshLinks();
