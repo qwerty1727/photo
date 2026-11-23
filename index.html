@@ -423,7 +423,7 @@
     <div class="rows"><button class="row go" id="openLinks" type="button">Ссылки</button></div>
     <button class="btn primary" id="close" type="button">Готово</button>
 
-    <div class="version-text">v2.8.0</div>
+    <div class="version-text">v2.8.1</div>
   </div>
 </div>
 
@@ -1508,7 +1508,6 @@
   }
   function saveLinks() {
     linksTouched = true;
-    if (Date.now() - lastAutoSnap > 300000) { lastAutoSnap = Date.now(); snap('авто'); }
     try { localStorage.setItem('photo-links', JSON.stringify(links)); } catch (e) {}
     dbPut('links', links).catch(function () {});
   }
@@ -2089,7 +2088,7 @@
   function renderSnaps() {
     snapList.textContent = '';
     var a = readSnaps();
-    if (!a.length) { snapList.textContent = 'Пока нет автокопий. Они появляются сами перед удалением и переносом.'; return; }
+    if (!a.length) { snapList.textContent = 'Пока нет автокопий. Они делаются только перед удалением, переносом и сбросом, а по таймеру — нет.'; return; }
     a.forEach(function (e) {
       var row = document.createElement('div'); row.className = 'chk';
       var lb = document.createElement('span'); lb.textContent = fmtT(e.t) + ' · ' + e.why + ' · ссылок: ' + e.n;
@@ -2156,7 +2155,7 @@
     if (NATIVE && NATIVE.saveText) {
       var r = ''; try { r = String(NATIVE.saveText(name, text)); } catch (e) { r = 'err:' + e; }
       if (r === 'nofolder') bkMsg.textContent = 'Сначала нажми «Выбрать папку для копий».';
-      else if (r.indexOf('ok:') === 0) bkMsg.textContent = 'Сохранено: ' + r.slice(3) + ' · ссылок: ' + n;
+      else if (r.indexOf('ok:') === 0) { var fo = ''; try { fo = String(NATIVE.folderName() || ''); } catch (e) {} bkMsg.textContent = 'Сохранено в папку «' + fo + '»: ' + r.slice(3) + ' · ссылок: ' + n + '. Открой приложение «Файлы» и зайди в эту папку.'; }
       else bkMsg.textContent = 'Не удалось сохранить (' + r.slice(4) + '). Выбери папку заново.';
       return;
     }
@@ -2165,7 +2164,7 @@
     a.download = name.replace(/[\\\/:*?"<>|]/g, '_') + (/\.json$/i.test(name) ? '' : '.json');
     document.body.appendChild(a); a.click();
     setTimeout(function () { URL.revokeObjectURL(a.href); if (a.parentNode) a.parentNode.removeChild(a); }, 1000);
-    bkMsg.textContent = 'Файл «' + a.download + '» скачан (папка Загрузки). Ссылок: ' + n;
+    bkMsg.textContent = 'Файл «' + a.download + '» сохранён: приложение «Файлы» → Загрузки (Download) → ' + a.download + '. Ссылок: ' + n;
   });
   var bkFile = document.getElementById('bkFile');
   document.getElementById('bkLoad').addEventListener('click', function () { bkFile.click(); });
