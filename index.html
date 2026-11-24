@@ -423,7 +423,7 @@
     <div class="rows"><button class="row go" id="openLinks" type="button">Ссылки</button></div>
     <button class="btn primary" id="close" type="button">Готово</button>
 
-    <div class="version-text">v2.8.1</div>
+    <div class="version-text">v2.8.2</div>
   </div>
 </div>
 
@@ -2139,7 +2139,7 @@
   function bkUi() {
     if (!bkName.value) bkName.value = bkDefaultName();
     bkMsg.textContent = '';
-    if (NATIVE) {
+    if (NATIVE && !NATIVE.saveDownload) {
       bkPick.hidden = false; bkFolderRow.hidden = false;
       var n = ''; try { n = String(NATIVE.folderName() || ''); } catch (e) {}
       bkFolder.textContent = n || 'не выбрана';
@@ -2152,6 +2152,12 @@
       return { text: x.text, url: x.url, page: x.p, u: x.u, v: x.v, s: x.s, hs: x.hs, r: x.r };
     }) };
     var text = JSON.stringify(data, null, 1), name = (bkName.value.trim() || bkDefaultName()), n = data.items.length;
+    if (NATIVE && NATIVE.saveDownload) { // новый способ: всегда в «Файлы» → Download → Photo, выбирать папку не нужно
+      var r2 = ''; try { r2 = String(NATIVE.saveDownload(name, text)); } catch (e) { r2 = 'err:' + e; }
+      if (r2.indexOf('ok:') === 0) bkMsg.textContent = 'Сохранено. Приложение «Файлы» → Внутренняя память → Download → Photo → ' + r2.slice(3) + ' · ссылок: ' + n;
+      else bkMsg.textContent = 'Не удалось сохранить (' + r2.slice(4) + ').';
+      return;
+    }
     if (NATIVE && NATIVE.saveText) {
       var r = ''; try { r = String(NATIVE.saveText(name, text)); } catch (e) { r = 'err:' + e; }
       if (r === 'nofolder') bkMsg.textContent = 'Сначала нажми «Выбрать папку для копий».';
